@@ -11,4 +11,4 @@ ifeq ($(UNAME), Darwin)
 endif
 
 listTests:  
-	$(CC)  $(CFLAGS) src/listTest.c src/testCases.c src/testharness.c studentCode/*.c  -o bin/listTests
+	$(CC) $(CFLAGS) src/listTest.c src/testCases.c src/testharness.c studentCode/*.c -o bin/listTests
