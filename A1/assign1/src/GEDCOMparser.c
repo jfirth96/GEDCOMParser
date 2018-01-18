@@ -7,7 +7,7 @@
 #include "GEDCOMparser.h"
 //***************************************** GEDCOOM object functions *****************************************
 
-/** 
+/**
  * Function to create a GEDCOM object based on the contents of an GEDCOM file.
  *
  * @pre File name cannot be an empty string or NULL.  File name must have the .ged extension.
@@ -24,7 +24,7 @@
 GEDCOMerror createGEDCOM( char* fileName, GEDCOMobject** obj );
 
 
-/** 
+/**
  * Function to create a string representation of a GEDCOMobject.
  *
  * @pre GEDCOMobject object exists, is not null, and is valid
@@ -35,7 +35,7 @@ GEDCOMerror createGEDCOM( char* fileName, GEDCOMobject** obj );
 char* printGEDCOM( const GEDCOMobject* obj );
 
 
-/** 
+/**
  * Function to delete all GEDCOM object content and free all the memory.
  *
  * @pre GEDCOM object exists, is not null, and has not been freed
@@ -46,7 +46,7 @@ char* printGEDCOM( const GEDCOMobject* obj );
 void deleteGEDCOM( GEDCOMobject* obj );
 
 
-/** 
+/**
  * Function to "convert" the GEDCOMerror into a humanly redabale string.
  *
  * @return a string contaning a humanly readable representation of the error code
@@ -54,7 +54,7 @@ void deleteGEDCOM( GEDCOMobject* obj );
  **/
 char* printError( GEDCOMerror err );
 
-/** 
+/**
  * Function that searches for an individual in the list using a comparator function.
  * If an individual is found, a pointer to the Individual record
  * Returns NULL if the individual is not found.
@@ -72,7 +72,7 @@ char* printError( GEDCOMerror err );
 Individual* findPerson( const GEDCOMobject* familyRecord, bool (*compare)( const void* first, const void* second ), const void* person );
 
 
-/** 
+/**
  * Function to return a list of all descendants of an individual in a GEDCOM
  *
  * @pre GEDCOM object exists, is not null, and is valid
@@ -95,16 +95,86 @@ char* printEvent(void* toBePrinted);
 
 void deleteIndividual(void* toBeDeleted);
 int compareIndividuals(const void* first,const void* second);
-char* printIndividual(void* toBePrinted);
+char* printIndividual( void* toBePrinted ) {
+    if (toBePrinted == NULL) return NULL;
+
+    Individual indi = *((Individual*)toBePrinted);
+    char* string = NULL;
+    if (indi.givenName != NULL) {
+        string = realloc( string, sizeof( char ) * strlen( indi.givenName ) + 1 );
+        strcpy( string, indi.givenName );
+        strcat( string, " " );
+    }
+    if (indi.surname != NULL) {
+        string = realloc( string, sizeof( char ) * (strlen( string ) + strlen( indi.surname ) + 1) );
+        strcat( string, indi.surname );
+        strcat( string, "\n" );
+    }
+    return string;
+}
 
 void deleteFamily(void* toBeDeleted);
 int compareFamilies(const void* first,const void* second);
-char* printFamily(void* toBePrinted);
+char* printFamily( void* toBePrinted ) {
+    if (toBePrinted == NULL) return NULL;
+
+    Family fam = *((Family*)toBePrinted);
+    char* string = NULL;
+    if (fam.husband != NULL) {
+        string = realloc( string, sizeof( char ) * 6);
+        strcpy( string, "HUSB " );
+        if (fam.husband->givenName != NULL) {
+            string = realloc( string, sizeof( char ) * strlen( fam.husband->givenName ) + 1 );
+            strcat( string, fam.husband->givenName );
+        }
+        if (fam.husband->surname != NULL) {
+            string = realloc( string, sizeof( char ) * strlen( string ) + strlen( fam.husband->surname ) + 1 );
+            strcat( string, " " );
+            strcat( string, fam.husband->surname );
+        }
+        strcat( string, "\n" );
+    }
+    if (fam.wife != NULL) {
+        string = realloc( string, sizeof( char ) * strlen( string ) + 6);
+        strcpy( string, "WIFE " );
+        if (fam.wife->givenName != NULL) {
+            string = realloc( string, sizeof( char ) * strlen( fam.wife->givenName ) + 1 );
+            strcat( string, fam.wife->givenName );
+        }
+        if (fam.wife->surname != NULL) {
+            string = realloc( string, sizeof( char ) * strlen( string ) + strlen( fam.wife->surname ) + 1 );
+            strcat( string, " " );
+            strcat( string, fam.wife->surname );
+        }
+        strcat( string, "\n" );
+    }
+    if (getLength( fam.children) != 0) {
+        ListIterator iter = createIterator( fam.children );
+        void* element;
+        while ((element = nextElement( &iter )) != NULL) {
+            char* tmp = printIndividual( element );
+            string = realloc( string, sizeof( char ) * (strlen( string ) + strlen( tmp ) + 1) );
+            strcat( string, tmp );
+            free( tmp );
+        }
+    }
+    if (getLength( fam.otherFields ) != 0) {
+        ListIterator iter = createIterator( fam.otherFields );
+        void* element;
+        while ((element = nextElement( &iter )) != NULL) {
+            char* tmp = printField( element );
+            string = realloc( string, sizeof( char ) * (strlen( string ) + strlen( tmp ) + 1) );
+            strcat( string, tmp );
+            free( tmp );
+        }
+    }
+    return string;
+}
 
 void deleteField(void* toBeDeleted) {
     if (toBeDeleted == NULL) return;
 
-    Field temp = (Field)toBeDeleted;
+    Field temp = *((Field*)toBeDeleted);
     if (temp.tag != NULL) {
         free( temp.tag );
         temp.tag = NULL;
@@ -113,16 +183,15 @@ void deleteField(void* toBeDeleted) {
         free( temp.value );
         temp.value = NULL;
     }
-    free( temp );
 }
 
 int compareFields(const void* first, const void* second) {
-    Field one = (Field)first;
-    Field two = (Field)second;
-
-    if (one == NULL || two == NULL) {
+    if (first == NULL || second == NULL) {
         return OTHER;
     }
+    Field one = *((Field*)first);
+    Field two = *((Field*)second);
+
     if (one.tag == NULL || one.value == NULL || two.tag == NULL || two.value == NULL) {
         return OTHER;
     }
@@ -146,18 +215,18 @@ int compareFields(const void* first, const void* second) {
 }
 
 char* printField(void* toBePrinted) {
-    Field temp = (Field)toBePrinted;
+    if (toBePrinted == NULL) return NULL;
+    Field temp = *((Field*)toBePrinted);
 
-    if (temp == NULL) return NULL;
     if (temp.tag == NULL || temp.value == NULL) {
         return NULL;
     }
 
-    char* stringOne = malloc( sizeof( char ) * (strlen( one.tag ) + strlen( one.value ) + 2) );
+    char* stringOne = malloc( sizeof( char ) * (strlen( temp.tag ) + strlen( temp.value ) + 2) );
 
-    strcpy( stringOne, one.tag );
+    strcpy( stringOne, temp.tag );
     stringOne[strlen( stringOne ) - 1] = '>';
-    strcat( stringOne, one.value );
+    strcat( stringOne, temp.value );
     return stringOne;
 }
 //************************************************************************************************************

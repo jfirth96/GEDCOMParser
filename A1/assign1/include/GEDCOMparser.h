@@ -1,10 +1,3 @@
-/**
- * @file GEDCOMparser.h
- * @date January 2018
- * @version CIS2750 A1
- *
- * @brief Provided by Denis Nikitenko to the students of CIS2750 W18 for use in A1
- */
 #ifndef GEDCOMPARSER_H
 #define GEDCOMPARSER_H
 
@@ -15,7 +8,7 @@
 
 #include "LinkedListAPI.h"
 
-//For simplicity, the examples we will use will only use the ASCII subset of these encodings
+//For simplicity, the examples we will use will only use the ASCII subset of these encodings 
 typedef enum cSet {ANSEL, UTF8, UNICODE, ASCII} CharSet;
 
 //error code enum
@@ -25,23 +18,23 @@ typedef enum eCode {OK, INV_FILE, INV_GEDCOM, INV_HEADER, INV_RECORD, OTHER} Err
 typedef struct {
     //The max length of this field is known from the GEDCOM spec, so we can use a statically allocated array
     char type[5];
-
+    
     //Empty string if not provided
     char* date;
-
+    
     //Empty string if not provided
     char* place;
-
+    
     //All other event fields. All objects in the list will be of type Field.  It may be empty.
     List    otherFields;
-
+    
 } Event;
 
 //Represents a generic field.  This will be used in A2.
 typedef struct {
     //Field tag.  Must not be NULL/empty.
     char* tag;
-
+    
     //Field value.  Must not be NULL/empty.
     char* value;
 } Field;
@@ -50,10 +43,10 @@ typedef struct {
 typedef struct {
     //Submitter name has a max length and only appears once, so we can hardcode it
     char    submitterName[61];
-
+    
     //All other submitter fields. All objects in the list will be of type Field.  It may be empty.
     List    otherFields;
-
+    
     //Submitted address.  We use a C99 flexible array member, which we will discuss in class.
     char    address[];
 } Submitter;
@@ -66,55 +59,55 @@ typedef struct {
 typedef struct {
     //Header source - i.e. software that produced the GEDCOM file
     char        source[249];
-
+  
     //GEDCOM version
     float       gedcVersion;
-
+    
     //Encoding.  We use an enum, since there are only 4 possible values.
     CharSet     encoding;
-
+    
     //Reference to the submitter record
     Submitter*  submitter;
-
+    
     //All other header fields. All objects in the list will be of type Field.  It may be empty.
     List        otherFields;
-
+    
 } Header;
 
 //Represends GEDCOM individual record
 typedef struct {
-
+    
     //Set to empty string if not present in file
     char*    givenName;
-
+    
     //Set to empty string if not present in file
     char*    surname;
-
+    
     //Collection of events. All objects in the list will be of type Event.  It may be empty.
     List    events;
-
+    
     //Collection of family references.  All objects in the list will be of type Family.  It may be empty.
     List    families;
-
+    
     //All other individual record fields. All objects in the list will be of type Field.  It may be empty.
     List    otherFields;
-
+    
 } Individual;
 
 //Represends GEDCOM family record
 typedef struct {
     //Wife reference (can be null)
     Individual* wife;
-
+    
     //Husband reference (can be null)
     Individual* husband;
-
+    
     //List of child references.  All objects in the list will be of type Individual.  It may be empty.
     List        children;
-
+    
     //List of other fields in the family record.  All objects in the list will be of type Field.  It may be empty.
     List        otherFields;
-
+    
 } Family;
 
 //Represents a GEDCOM object
@@ -122,26 +115,26 @@ typedef struct {
 
 	//Header.  Must not be NULL.
     Header*     header;
-
+    
     //Family records.  All objects in the list will be of type Family.  It may be empty.
     List         families; //Must contain type
-
+    
     //Individual records.  All objects in the list will be of type Individual.  It may be empty.
     List        individuals; //Must contain type Family
-
+    
     //Submitter.  Must not be NULL.
     Submitter*  submitter;
-
+    
     //All other records should be ignored for now
-
+    
 } GEDCOMobject;
 
 //Error type
 typedef struct {
-
+    
     ErrorCode   type;
     int         line;
-
+    
 } GEDCOMerror;
 
 
