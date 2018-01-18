@@ -371,8 +371,8 @@ int getLength( List list ) {
 void* findElement( List list, bool (*customCompare)( const void* first, const void* second ), const void* searchRecord ) {
 	if (list.length == 0) return NULL;
 
-	void* element;
 	ListIterator iter = createIterator( list );
+	void* element;
 
 	while ((element = nextElement( &iter )) != NULL) {
 		if (customCompare( searchRecord, element ) == true) {
