@@ -369,5 +369,15 @@ int getLength( List list ) {
  *      all of the same type - just like arguments to the compare() function in the List struct
  **/
 void* findElement( List list, bool (*customCompare)( const void* first, const void* second ), const void* searchRecord ) {
+	if (list.length == 0) return NULL;
+
+	void* element;
+	ListIterator iter = createIterator( list );
+
+	while ((element = nextElement( &iter )) != NULL) {
+		if (customCompare( searchRecord, element ) == true) {
+			return element;
+		}
+	}
 	return NULL;
 }
