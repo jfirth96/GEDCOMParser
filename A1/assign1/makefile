@@ -1,5 +1,5 @@
 CC = gcc
-CFLAGS = -Wall -std=c99 -g -Iinclude -c
+CFLAGS = -Wall -std=c11 -g -Iinclude -c
 
 SRC = src/
 BIN = bin/
