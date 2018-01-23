@@ -36,6 +36,10 @@ int main( int argc, char** argv ) {
     Family *fam1 = (createFamily( indiv1, indiv2 )); // test1
     Family *fam2 = (createFamily( indiv1, indiv3 )); // test2
 
+    // Create test Submitter
+    Submitter* sub = createSubmitter( "Isaac Firth", "55 Byron Street\nGeorgetown, ON" );
+    printf( "%s\n%s\n", sub->submitterName, sub->address );
+
     // Add children to families
     bool flag = addToFamily( fam1, indiv3, CHIL ); // test1
     if (flag == false) {
@@ -59,7 +63,12 @@ int main( int argc, char** argv ) {
     printf( "fam1 = %d members\n", familyMemberCount( (void*)fam1 ) ); // test1
     printf( "fam2 = %d members\n", familyMemberCount( (void*)fam2 ) ); // test2
 
-    char* printMe = printField( (void*)field1 ); // test 1 printField
+    addEventToIndividual( indiv1, event1 );
+    char* printMe = printIndividual( (void*)indiv1 );
+    printf( "-- printIndividual with event --\n%s\n", printMe );
+    free( printMe );
+/*
+    printMe = printField( (void*)field1 ); // test 1 printField
     printf( "printField test 1:\n%s\n", printMe );
     free( printMe );
     printMe = printField( (void*)field2 ); // test 2 printField
@@ -116,7 +125,7 @@ int main( int argc, char** argv ) {
     //printf( "(%s) vs (%s): %d - test 1 printFamily\n", print1, print2, compareFamilies( (void*)fam1, (void*)fam2 ) );
     //printf( "(%s) vs (%s): %d - test 2 printFamily\n", print2, print1, compareFamilies( (void*)fam2, (void*)fam1 ) );
     free( print1 );
-    free( print2 );
+    free( print2 );*/
 
     //deleteField( (void*)field1 ); // test 1 deleteField
     //deleteField( (void*)field2 ); // test 2 deleteField
@@ -125,17 +134,31 @@ int main( int argc, char** argv ) {
     deleteIndividual( (void*)indiv3 ); // test 3 deleteIndividual
     deleteFamily( (void*)fam1 ); // test 1 for deleteFamily
     deleteFamily( (void*)fam2 ); // test 2 for deleteFamily
-    deleteEvent( (void*)event1 ); // test 1 deleteEvent
+    //deleteEvent( (void*)event1 ); // test 1 deleteEvent
     deleteEvent( (void*)event2 ); // test 2 deleteEvent
 
     GEDCOMerror* err = createError( INV_FILE, 20 );
-    print1 = printError( *err );
+    char* print1 = printError( *err );
     printf( "%s", print1 );
     free( print1 );
 
-    GEDCOMline *line = createGEDCOMline( 2, NULL, "DATE", "12 MAY 1987" );
+    print1 = malloc( sizeof( char ) * 100 );
+    strcpy( print1, "1 DATE 12 MAY 1987" );
+    GEDCOMline *line = createGEDCOMline( print1, argv[1] );
     printf( "%d %s %s", line->level, line->tag, line->lineValue );
     deleteGEDCOMline( line );
+    char* date = convertDate( "12 MAY 2017" );
+    printf( "%s\n", date );
+    free( date );
+    date = convertDate( "30 JUN 1829" );
+    printf( "%s\n", date );
+    free( date );
+    free( print1 );
+
+    Header* head = createHeader( "ancestry.com", 5.51, ASCII, sub );
+    printf( "%s, %.2f\n", head->source, head->gedcVersion );
+    deleteSubmitter( sub );
+    deleteHeader( head );
     /*free( field1 );
     free( field2 );
     free( indiv1 );
@@ -147,6 +170,5 @@ int main( int argc, char** argv ) {
     //free( line );
     //free( fam1 );
     //free( fam2 );
-
     return 0;
 }

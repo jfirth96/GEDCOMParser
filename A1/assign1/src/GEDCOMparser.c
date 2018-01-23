@@ -22,7 +22,9 @@
  * @param fileName - a string containing the name of the GEDCOM file
  * @param a double pointer to a GEDCOMobject struct that needs to be allocated
  **/
-GEDCOMerror createGEDCOM( char* fileName, GEDCOMobject** obj );
+GEDCOMerror createGEDCOM( char* fileName, GEDCOMobject** obj ) {
+    
+}
 
 
 /**

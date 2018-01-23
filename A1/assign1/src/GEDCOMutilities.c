@@ -13,6 +13,9 @@
 #include "GEDCOMutilities.h"
 #include "GEDCOMparser.h"
 
+/** Internal Functions */
+GEDCOMline* parseGEDCOMline( char* line, char* filename );
+
 bool addEventToIndividual( Individual* indiv, Event* toAdd ) {
     if (indiv == NULL || toAdd == NULL)
         return false;
@@ -127,24 +130,26 @@ Field* createField( char* tag, char* value ) {
     return field;
 }
 
-GEDCOMline* createGEDCOMline( int level, void* reference, char* tag, char* value ) {
-    if (level < 0 || tag == NULL)
+GEDCOMline* createGEDCOMline( char* input, char* filename ) {
+    if (input == NULL || filename == NULL)
         return NULL;
 
-    GEDCOMline* line = malloc( sizeof( GEDCOMline ) );
-    line->level = level;
-    line->extRefID = reference;
-    line->tag = malloc( sizeof( char ) * (strlen( tag ) + 1) );
-    strcpy( line->tag, tag );
-    if (value != NULL) {
-        line->lineValue = malloc( sizeof( char ) * (strlen( value ) + 1) );
-        strcpy( line->lineValue, value );
-    } else {
-        line->lineValue = NULL;
-    }
+    GEDCOMline* line = parseGEDCOMline( input, filename );
     return line;
 }
 
+Header* createHeader( char* source, float version, CharSet encoding, Submitter* sub ) {
+    if (source == NULL || strlen( source ) > 248 || version < 0.0 || sub == NULL)
+        return NULL;
+
+    Header* head = malloc( sizeof( Header ) );
+    strcpy( head->source, source );
+    head->gedcVersion = version;
+    head->encoding = encoding;
+    head->submitter = sub;
+    head->otherFields = initializeList( &printField, &deleteField, &compareFields );
+    return head;
+}
 
 Individual* createIndividual( char* givenName, char* surname ) {
     if (givenName == NULL || surname == NULL)
@@ -162,6 +167,25 @@ Individual* createIndividual( char* givenName, char* surname ) {
     indi->otherFields = initializeList( &printField, &deleteField, &compareFields );
 
     return indi;
+}
+
+Submitter* createSubmitter( char* subName, char* address ) {
+    if (subName == NULL)
+        return NULL;
+
+    if (strlen( subName ) > 60) {
+        return NULL;
+    }
+
+    Submitter* sub = malloc( sizeof( Submitter ) + sizeof( char ) * (strlen( address ) + 1) );
+    strcpy( sub->submitterName, subName );
+    if (address != NULL) {
+        strcpy( sub->address, address );
+    } else {
+        strcpy( sub->address, "" );
+    }
+    sub->otherFields = initializeList( &printField, &deleteField, &compareFields );
+    return sub;
 }
 
 char* convertDate( char* toConvert ) {
@@ -231,6 +255,22 @@ void deleteGEDCOMline( GEDCOMline* line ) {
     free( line );
 }
 
+void deleteHeader( Header* head ) {
+    if (head == NULL)
+        return;
+
+    clearList( &(head->otherFields) );
+    free( head );
+}
+
+void deleteSubmitter( Submitter* sub ) {
+    if (sub == NULL)
+        return;
+
+    clearList( &(sub->otherFields) );
+    //cfree( sub->address );
+    free( sub );
+}
 
 int familyMemberCount( const void* family ) {
     if (family == NULL) return -1;
@@ -246,3 +286,216 @@ int familyMemberCount( const void* family ) {
 
     return members;
 }
+
+bool modifyGEDCOMline( GEDCOMline* line, char* modValue ) {
+    if (line == NULL || modValue == NULL)
+        return false;
+
+    line->lineValue = realloc( line->lineValue, sizeof( char ) * (strlen( line->lineValue ) + strlen( modValue ) + 1) );
+    strcat( line->lineValue, modValue );
+    return true;
+}
+
+GEDCOMline* parseGEDCOMline( char* line, char* filename ) {
+    if (line == NULL || strlen( line ) > 255)
+        return NULL;
+
+    char* temp = strtok( line, " " );
+    if (strlen( temp ) > 2 || (strlen( temp ) == 2 && temp[0] == '0')) {
+        return NULL;
+    }
+    GEDCOMline* toReturn = malloc( sizeof( GEDCOMline ) );
+    toReturn->level = atoi( temp );
+    if (toReturn->level > 99 || toReturn->level < 0) {
+        free( toReturn );
+        return NULL;
+    }
+    temp = strtok( NULL, " " );
+    if (temp[0] == '@') {
+        toReturn->extRefID = malloc( sizeof( char ) * (strlen( temp ) + 1) );
+        strcpy( toReturn->extRefID, temp );
+        temp = strtok( NULL, " \n\r" );
+    } else {
+        toReturn->extRefID = NULL;
+    }
+    toReturn->tag = malloc( sizeof( char ) * (strlen( temp ) + 1) );
+    strcpy( toReturn->tag, temp );
+
+    temp = strtok( NULL, "\n\r" );
+    if (temp != NULL) {
+        toReturn->lineValue = malloc( sizeof( char ) * (strlen( temp ) + 1) );
+        strcpy( toReturn->lineValue, temp );
+    } else {
+        toReturn->lineValue = NULL;
+    }
+    return toReturn;
+}
+
+/********************** START OF HASH TABLE FUNCTIONS *************************/
+
+char* printHTableData( void* printMe ) {
+    if (printMe == NULL)
+        return NULL;
+
+    ReferencePointerPair* refPtr = (ReferencePointerPair*)printMe;
+    char* temp = malloc( sizeof( char ) * 23 );
+    sprintf( temp, "%p", &(refPtr->indi) );
+    char* string = malloc( sizeof( char ) * (strlen( refPtr->extRefID ) + 1) );
+    string = realloc( string, sizeof( char ) * (strlen( temp ) + 2) );
+    strcat( string, temp );
+    strcat( string, "\n" );
+    return string;
+}
+
+int compareHTableData( const void* first, const void* second ) {
+    if (first == NULL || second == NULL)
+        return OTHER;
+
+    ReferencePointerPair* refPtr1 = (ReferencePointerPair*)first;
+    ReferencePointerPair* refPtr2 = (ReferencePointerPair*)second;
+
+    int compVal;
+    if (refPtr1->extRefID == NULL && refPtr2->extRefID == NULL) {
+        compVal = 0;
+    } else if (refPtr1->extRefID == NULL && refPtr2->extRefID != NULL) {
+        compVal = -1;
+    } else if (refPtr1->extRefID != NULL && refPtr2->extRefID == NULL) {
+        compVal = 1;
+    } else {
+        compVal = strcmp( refPtr1->extRefID, refPtr2->extRefID );
+        if (compVal > 0)
+            compVal = 1;
+        else if (compVal < 0) {
+            compVal = -1;
+        }
+    }
+    return compVal;
+}
+
+void deleteHTableData( void* deleteMe ) {
+    ReferencePointerPair* refPtr = (ReferencePointerPair*)deleteMe;
+    free( refPtr->extRefID );
+    free( refPtr );
+}
+
+HTable *createTable( size_t size, int (*hashFunction)( size_t tableSize, char *toHash ),
+    void (*destroyData)( void *data ),char* (*printNode)( void *toBePrinted ), int compare( const void *first, const void *second ),
+    void (*addFunction)( HTable *hashTable, void *data ) ) {
+
+    if (hashFunction == NULL || destroyData == NULL || printNode == NULL || compare == NULL ) {
+        printf( "ERROR - Passed NULL as argument.\n" );
+        return NULL;
+    }
+    int i;
+    HTable *newHashTable = malloc( sizeof( HTable ) );
+
+    newHashTable->table = malloc( sizeof( List* ) * size );
+    for (i = 0; i < size; i++) {
+      *(newHashTable->table[i]) = initializeList( printNode, destroyData, compare );
+    }
+    newHashTable->destroyData = destroyData;
+    newHashTable->hashFunction = hashFunction;
+    newHashTable->printNode = printNode;
+    newHashTable->addData = addFunction;
+    newHashTable->size = size;
+
+    return newHashTable;
+}
+
+HNode *createHNode (int key, void *data ) {
+    HNode *newHNode = initializeHNode( data );
+    newHNode->key = key;
+
+    return newHNode;
+}
+
+void destroyTable( HTable *hashTable ) {
+    int i;
+
+    for (i = 0; i < hashTable->size; i++) {
+        clearList( hashTable->table[i] );
+    }
+    free( hashTable->table );
+    free( hashTable );
+    printf( "Hash Table destroyed\n" );
+    return;
+}
+
+HNode* initializeHNode( void* data ) {
+	HNode* tmpNode;
+
+	tmpNode = malloc( sizeof( HNode ) );
+
+	if (tmpNode == NULL){
+		return NULL;
+	}
+
+	tmpNode->data = data;
+	tmpNode->previous = NULL;
+	tmpNode->next = NULL;
+
+	return tmpNode;
+}
+
+void insertData( HTable *hashTable, int key, void *data ) {
+    HNode *newHNode = createHNode( key, data );
+    List *list = hashTable->table[key];
+    HNode *temp = (HNode*)(list->head);
+
+    while (temp != NULL) {
+        if (list->compare( temp->data, data ) == 0) {
+            printf( "That value already exists, duplicate entries are not allowed.\n" );
+            free( data );
+            return;
+        }
+        temp = temp->next;
+    }
+    insertSorted( hashTable->table[key], newHNode );
+    return;
+}
+
+void insertDataIntoMap( HTable *hashTable, void *data ) {
+    insertData( hashTable, hashTable->hashFunction( hashTable->size, data ), data );
+}
+
+void removeData( HTable *hashTable, int key, void *toRemove ) {
+    List *workingList = hashTable->table[key];
+    HNode *temp = (HNode*)workingList->head;
+
+    while (temp != NULL) {
+        if (workingList->compare( toRemove, temp->data ) == 1) {
+            temp = temp->next;
+        } else {
+            if (workingList->compare( toRemove, temp->data ) == 0) {
+                printf( "Removing data\n" );
+                deleteDataFromList( workingList, temp );
+                return;
+            } else {
+                printf( "That value does not exist.\n" );
+                return;
+            }
+        }
+    }
+    printf( "That value does not exist.\n" );
+    return;
+}
+
+void *lookupData( HTable *hashTable, int key, void *toFind ) {
+    List *workingList = hashTable->table[key];
+    HNode *temp = (HNode*)(workingList->head);
+
+    while (temp != NULL) {
+        if (workingList->compare( toFind, temp->data ) == 1) {
+            temp = temp->next;
+        } else {
+            if (workingList->compare( toFind, temp->data ) == 0) {
+                return temp->data;
+            } else {
+                return NULL;
+            }
+        }
+    }
+    return NULL;
+}
+
+/************************ END OF HASH TABLE FUNCTIONS *************************/

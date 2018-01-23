@@ -20,10 +20,18 @@ typedef enum recType { FAM, INDI, EVENT } RecordType;
 
 typedef struct gedcom_line {
     int level;
-    Individual* extRefID;
+    char* extRefID;
     char* tag;
     char* lineValue;
 } GEDCOMline;
+
+/* This structure is used internally to associate a GEDCOM reference string (i.e. @I001@)
+ * with an appropriate Individual pointer
+ */
+typedef struct extRefPointerPair {
+    Individual* indi;
+    char* extRefID;
+} ReferencePointerPair;
 
 /**
  * Function to add an event to an individual's structure
@@ -123,7 +131,12 @@ Field* createField( char* tag, char* value );
  * @param tag The tag of the line
  * @param value Optional line value, pointer may be NULL
  */
-GEDCOMline* createGEDCOMline( int level, void* reference, char* tag, char* value );
+GEDCOMline* createGEDCOMline( char* input, char* filename );
+
+/**
+ *
+ */
+Header* createHeader( char* source, float version, CharSet encoding, Submitter* sub );
 
 /**
  * Function to allocate space for strings and initialize lists in the Individual structure
@@ -138,11 +151,26 @@ GEDCOMline* createGEDCOMline( int level, void* reference, char* tag, char* value
 Individual* createIndividual( char* givenName, char* surname );
 
 /**
+ *
+ */
+Submitter* createSubmitter( char* subName, char* address );
+
+/**
  * Destructor for a GEDCOM line. Frees any strings inside
  *
  * @param line The line to be destroyed;
  */
 void deleteGEDCOMline( GEDCOMline* line );
+
+/**
+ *
+ */
+void deleteHeader( Header* head );
+
+/**
+ *
+ */
+void deleteSubmitter( Submitter* sub );
 
 /**
  * Return a count of the number of members in the family
@@ -151,5 +179,123 @@ void deleteGEDCOMline( GEDCOMline* line );
  * @return The number of family members
  */
 int familyMemberCount( const void* family );
+
+/**
+ * Mutator function to append more text to the value field of a GEDCOM line
+ *
+ * @param line The GEDCOM line to be modified
+ * @param modValue The string to be appended to the line value
+ * @return true on success, false otherwise
+ */
+bool modifyGEDCOMline( GEDCOMline* line, char* modValue );
+
+/** START OF HASH TABLE FUNCTIONS **/
+
+typedef struct hashNode{
+    void *data;
+    struct hashNode *previous;
+    struct hashNode *next;
+    int key; // used for hash table
+} HNode;
+
+/**
+ * Hash table structure
+ */
+typedef struct HTable {
+    size_t size; // number that represents the size of the hash table
+    List **table; // array that contains all of the table nodes
+    void (*destroyData)( void *data ); // function pointer to a function to delete a single piece of data from the hash table
+    int (*hashFunction)( size_t tableSize, char *toHash ); // function pointer to a function to hash the data
+    char* (*printNode)( void *toBePrinted ); // function pointer to a function that prints out a data element of the table
+    void (*addData)( struct HTable *hashTable, void *data );
+} HTable;
+
+/**
+ * Function to point the hash table to the appropriate functions. Allocates memory to the struct and table based on the size given.
+ *
+ * @param size size of the hash table
+ * @param hashFunction function pointer to a function to hash the data
+ * @param destroyData function pointer to a function to delete a single piece of data from the hash table
+ * @param printNode function pointer to a function that prints out a data element of the table
+ * @return pointer to the hash table
+ */
+HTable *createTable( size_t size, int (*hashFunction)( size_t tableSize, char *toHash ),
+    void (*destroyData)( void *data ), char* (*printNode)( void *toBePrinted ), int compare( const void *first, const void *second ),
+    void (*addFunction)( HTable *hashTable, void *data ) );
+
+/**
+ * Function for creating a node for the hash table.
+ *
+ * @pre Node must be cast to void pointer before being added.
+ * @post Node is valid and able to be added to the hash table
+ * @param key Integer that represents the data (eg 35->"hello")
+ * @param data Generic pointer to any data type.
+ * @return Node for the hash table
+ */
+HNode *createHNode (int key, void *data );
+
+/**
+ * Deletes the entire hash table and frees memory of every element.
+ *
+ * @pre Hash Table must exist.
+ * @param hashTable Pointer to hash table containing elements of data
+ */
+void destroyTable( HTable *hashTable );
+
+/**
+ * Function for creating a node for the hash table.
+ * This node contains abstracted (void *) data as well as previous and next pointers to connect to other nodes in the list.
+ *
+ * @pre data should be of same size of void pointer on the users machine to avoid size conflicts. data must be valid.
+ *   data must be cast to void pointer before being added.
+ * @post data is valid to be added to a hash table
+ * @return On success returns a hash node that can be added to a hash table. On failure, returns NULL.
+ * @param data - is a void * pointer to any data type.  Data must be allocated on the heap.
+ **/
+HNode* initializeHNode( void* data );
+
+/**
+ * Inserts a Node in the hash table.
+ *
+ * @pre hashTable type must exist and have data allocated to it
+ * @param hashTable Pointer to the hash table
+ * @param key Integer that represents the data (eg 35->"hello")
+ * @param data Pointer to generic data that is to be inserted into the list
+ */
+void insertData( HTable *hashTable, int key, void *data );
+
+/**
+ * Wrapper function to encapsulate the key generation process for inserting data
+ *
+ * @param hashTable The hash table to add to
+ * @param data Pointer to the data to be inserted
+ */
+void insertDataIntoMap( HTable *hashTable, void *data );
+
+/**
+ * Function to return the data from the key given.
+ *
+ * @pre The hash table exists and has memory allocated to it
+ * @param hashTable Pointer to the hash table containing data nodes
+ * @param key Integer that represents a piece of data in the table (eg 35->"hello")
+ * @param toFind Pointer to the data to be removed. Used for finding proper value when collisions
+ *        occur
+ * @return Pointer to the data in the hash table. Returns NULL if no match is found.
+ */
+void *lookupData( HTable *hashTable, int key, void *toFind );
+
+/**
+ * Function to remove a node from the hash table
+ *
+ * @pre Hash table must exist and have memory allocated to it
+ * @post Node at key will be removed from the hash table if it exists.
+ * @param hashTable Pointer to the hash table struct
+ * @param key Integer that represents a piece of data in the table (eg 35->"hello")
+ * @param toRemove Pointer to the data to be removed. Used for finding proper value when collisions
+ *        occur
+ */
+void removeData( HTable *hashTable, int key, void *toRemove );
+
+/** END OF HASH TABLE FUNCTIONS **/
 
 #endif
