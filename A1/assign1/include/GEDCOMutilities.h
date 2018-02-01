@@ -16,13 +16,14 @@ typedef enum relatCode { HUSB, WIFE, CHIL } RelationType;
 /* Used for indicating the record type to provide a generic utility to add fields to the list
  * in the structures.
  */
-typedef enum recType { FAM, INDI, EVENT } RecordType;
+typedef enum recType { FAM, INDI, EVENT, HEAD, SUBM } RecordType;
 
 typedef struct gedcom_line {
     int level;
     char* extRefID;
     char* tag;
     char* lineValue;
+    int lineNumber;
 } GEDCOMline;
 
 /* This structure is used internally to associate a GEDCOM reference string (i.e. @I001@)
@@ -36,11 +37,12 @@ typedef struct extRefPointerPair {
 /**
  * Function to add an event to an individual's structure
  *
- * @param indiv Pointer to the individual to be modified
+ * @param record
  * @param toAdd Pointer to the event to be added
+ * @param type
  * @return True on success, false on failure
  */
-bool addEventToIndividual( Individual* indiv, Event* toAdd );
+bool addEventToIndividual( void* record, Event* toAdd, RecordType type );
 
 /**
  * Function to add a field to any of family, individual, or event structures.
@@ -81,7 +83,7 @@ char* convertDate( char* toConvert );
  *
  * @param type String indicating the type of the error
  */
-GEDCOMerror* createError( ErrorCode type, int line );
+GEDCOMerror createError( ErrorCode type, int line );
 
 /**
  * Function to allocate space for strings and initialize the list in an Event structure
@@ -89,12 +91,11 @@ GEDCOMerror* createError( ErrorCode type, int line );
  * @pre type, date, and place must be null terminated strings
  * @post On success, an Event structure is returned with the proper space allocated for the
  *       given names. On failure, NULL is returned
- * @param type The type of event. Parameter will be validated to be 4 characters or less
- * @param date The date of the event in the format DD MMM YYYY (i.e. 12 JAN 2017)
- * @param place The place of the event, no format requirements
+ * @param record
+ * @param count
  * @return Event structure with proper space allocated, or NULL
  */
-Event* createEvent( char* type, char* date, char* place );
+Event* createEvent( GEDCOMline** record, int count );
 
 /**
  * Constructor for a family. Assigns the pointers to the proper individuals and initializes
@@ -107,7 +108,7 @@ Event* createEvent( char* type, char* date, char* place );
  *        family.
  * @return Family with space allocated
  */
-Family* createFamily( Individual* husb, Individual* wife );
+Family* createFamily( GEDCOMline** record, int count );
 
 /**
  * Constructor for a Field.
@@ -125,18 +126,14 @@ Field* createField( char* tag, char* value );
  * Constructor for a GEDCOMline object.
  * NOTE: reference and value may be NULL
  *
- * @param level The level of the line
- * @param reference The external reference pointer, void because it can be referecing a variety
- *        of structures. May also be NULL
- * @param tag The tag of the line
- * @param value Optional line value, pointer may be NULL
+ * @param input
  */
-GEDCOMline* createGEDCOMline( char* input, char* filename );
+GEDCOMline* createGEDCOMline( char* input );
 
 /**
  *
  */
-Header* createHeader( char* source, float version, CharSet encoding, Submitter* sub );
+Header* createHeader( GEDCOMline** record, int count );
 
 /**
  * Function to allocate space for strings and initialize lists in the Individual structure
@@ -148,12 +145,12 @@ Header* createHeader( char* source, float version, CharSet encoding, Submitter* 
  * @param surname The string to be stored as the surname for the individual
  * @return An Individual structure with space allocated and lists initialized, or NULL
  */
-Individual* createIndividual( char* givenName, char* surname );
+Individual* createIndividual( GEDCOMline** record, int count );
 
 /**
  *
  */
-Submitter* createSubmitter( char* subName, char* address );
+Submitter* createSubmitter( GEDCOMline** record, int count );
 
 /**
  * Destructor for a GEDCOM line. Frees any strings inside
@@ -180,6 +177,12 @@ void deleteSubmitter( Submitter* sub );
  */
 int familyMemberCount( const void* family );
 
+
+/**
+ *
+ */
+bool isValidHeadTag( char* tag );
+
 /**
  * Mutator function to append more text to the value field of a GEDCOM line
  *
@@ -189,7 +192,34 @@ int familyMemberCount( const void* family );
  */
 bool modifyGEDCOMline( GEDCOMline* line, char* modValue );
 
-/** START OF HASH TABLE FUNCTIONS **/
+/**
+ *
+ */
+char* printHeader( Header* head );
+
+/**
+ *
+ */
+char* printGEDCOMline( GEDCOMline* line );
+
+/**
+ *
+ */
+char* printSubmitter( Submitter* sub );
+
+/**
+ * Robust version of fgets() that will handle any combination of \r or \n as a line
+ * terminator
+ *
+ * @param dest The string to store the read value in
+ * @param max The maximum number of characters to be read
+ * @param stream The stream to read from
+ * @return character pointer to new string on success, NULL on failure
+ */
+char* robust_fgets( char* dest, int max, FILE* stream );
+
+
+/************************ START OF HASH TABLE FUNCTIONS ***********************/
 
 typedef struct hashNode{
     void *data;
@@ -296,6 +326,6 @@ void *lookupData( HTable *hashTable, int key, void *toFind );
  */
 void removeData( HTable *hashTable, int key, void *toRemove );
 
-/** END OF HASH TABLE FUNCTIONS **/
+/************************** END OF HASH TABLE FUNCTIONS ***********************/
 
 #endif

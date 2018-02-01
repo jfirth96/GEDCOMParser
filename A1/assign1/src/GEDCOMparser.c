@@ -23,7 +23,123 @@
  * @param a double pointer to a GEDCOMobject struct that needs to be allocated
  **/
 GEDCOMerror createGEDCOM( char* fileName, GEDCOMobject** obj ) {
-    
+    if (fileName == NULL)
+        return createError( INV_FILE, -1 );
+    /*else {
+        char* temp;
+        temp = strtok( fileName, "." );
+        if (temp == NULL) {
+            return createError( INV_FILE, -1 );
+        }
+        temp = strtok( NULL, "\0" );
+        if (temp == NULL) {
+            return createError( INV_FILE, -1 );
+        }
+        if (strcmp( temp, "ged" ) != 0) {
+            //return createError( INV_FILE, -1 );
+        }
+    }*/
+
+    (*obj)->header = NULL;
+    (*obj)->submitter = NULL;
+
+    FILE* file = fopen( fileName, "r" );
+    if (file == NULL) {
+        return createError( INV_FILE, -1 );
+    }
+
+    (*obj)->individuals = initializeList( &printIndividual, &deleteIndividual, &compareIndividuals );
+    (*obj)->families = initializeList( &printFamily, &deleteFamily, &compareFamilies );
+
+    GEDCOMline** record = NULL;
+    int count = 0, lineNumber = 0;
+    char temp[255], *p;
+    bool hasHead, hasSubmit, hasTrailer, hasRecord;
+    hasHead = hasSubmit = hasTrailer = hasRecord = false;
+    p = robust_fgets( temp, 254, file );
+    while (1) {
+        count = 0;
+        record = realloc( record, sizeof( GEDCOMline* ) * (count + 1) );
+        record[count] = createGEDCOMline( temp );
+        record[count]->lineNumber = lineNumber + 1;
+        count++;
+        lineNumber++;
+        if ((p = robust_fgets( temp, 254, file )) == NULL) {
+            if (strcmp( record[count - 1]->tag, "TRLR" ) != 0) {
+                // free everything, return INV_GEDCOM
+            } else {
+                hasTrailer = true;
+            }
+            for (int i = 0; i < count; i++) {
+                deleteGEDCOMline( record[i] );
+            }
+            free( record );
+            break;
+        }
+
+        do {
+            if (temp[0] == '0') {
+                break;
+            }
+            record = realloc( record, sizeof( GEDCOMline* ) * (count + 1) );
+            record[count] = createGEDCOMline( temp );
+            record[count]->lineNumber = lineNumber + 1;
+            count++;
+            lineNumber++;
+            p = robust_fgets( temp, 254, file);
+        } while (1);
+
+
+        if (record[0]->level == 0) {
+            // validate 0-level tag
+            if (strcmp( record[0]->tag, "HEAD" ) == 0) {
+                // create header, pass array of lines and parse in the function
+                (*obj)->header = createHeader( record, count );
+                if ((*obj)->header == NULL) {
+                    // free everything
+                    // return INV_HEADER;
+                    //GEDCOMerror err = createError( INV_HEADER, record[count - 1]->lineNumber );
+                    for (int i = 0; i < count; i++) {
+                        deleteGEDCOMline( record[i] );
+                    }
+                    free( record );
+                    //return err;
+                }
+            } else if (strcmp( record[0]->tag, "SUBM" ) == 0) {
+                // create submitter, pass array of lines and parse in the function
+                (*obj)->submitter = createSubmitter( record, count );
+            } else if (strcmp( record[0]->tag, "INDI" ) == 0) {
+                // create individual, pass array of lines and parse in the function
+                Individual* indi = createIndividual( record, count );
+                insertSorted( &((*obj)->individuals), (void*)indi );
+            } else if (strcmp( record[0]->tag, "FAM" ) == 0) {
+                // create family, pass array of lines and parse in the function
+                Family* fam = createFamily( record, count );
+                insertSorted( &((*obj)->families), (void*)fam );
+            } else {
+                //break;
+            }
+        } else if (record[0]->level == 1) {
+            // validate 1-level tag
+            if (strcmp( record[0]->tag, "HEAD") == 0) {
+                // throw INV_HEADER
+            } else {
+
+            }
+        } else if (record[0]->level == 2) {
+            // must have a value or CONT|CONC as the tag
+        }
+        //}
+        for (int i = 0; i < count; i++) {
+            deleteGEDCOMline( record[i] );
+        }
+        free( record );
+        record = NULL;
+    }
+    //free( temp );
+    //free( temp2 );
+    fclose( file );
+    return createError( OK, 0 );
 }
 
 
@@ -35,7 +151,56 @@ GEDCOMerror createGEDCOM( char* fileName, GEDCOMobject** obj ) {
  * @return a string contaning a humanly readable representation of a GEDCOMobject
  * @param obj - a pointer to a GEDCOMobject struct
  **/
-char* printGEDCOM( const GEDCOMobject* obj );
+char* printGEDCOM( const GEDCOMobject* obj ) {
+    char* buffer = NULL;
+    char* temp = NULL;
+
+    buffer = malloc( sizeof( char ) * (strlen( "-- Header --\n" ) + 2) );
+    strcpy( buffer, "-- Header --\n" );
+    temp = printHeader( obj->header );
+    buffer = realloc( buffer, sizeof( char ) * (strlen( buffer ) + strlen( temp ) + 2) );
+    strcat( buffer, temp );
+    strcat( buffer, "\n" );
+    free( temp );
+
+    buffer = realloc( buffer, sizeof( char ) * (strlen( buffer ) + strlen( "-- Submitter --\n" ) + 1) );
+    strcat( buffer, "-- Submitter --\n" );
+    temp = printSubmitter( obj->submitter );
+    buffer = realloc( buffer, sizeof( char ) * (strlen( buffer ) + strlen( temp ) + 2) );
+    strcat( buffer, temp );
+    strcat( buffer, "\n" );
+    free( temp );
+
+    buffer = realloc( buffer, sizeof( char ) * (strlen( buffer ) + strlen( "-- Individuals --\n" ) + 1) );
+    strcat( buffer, "-- Individuals --\n" );
+    ListIterator indivIter = createIterator( obj->individuals );
+    void* elem;
+    int i = 0;
+    while ((elem = nextElement( &indivIter )) != NULL) {
+        temp = printIndividual( elem );
+        buffer = realloc( buffer, sizeof( char ) * (strlen( buffer ) + strlen( temp ) + 2) );
+        strcat( buffer, temp );
+        strcat( buffer, "\n" );
+        free( temp );
+    }
+
+    buffer = realloc( buffer, sizeof( char ) * (strlen( buffer ) + strlen( "-- Families --\n" ) + 1) );
+    strcat( buffer, "-- Families --\n" );
+    ListIterator famIter = createIterator( obj->families );
+    while ((elem = nextElement( &famIter )) != NULL) {
+        temp = malloc( sizeof( char ) * (strlen( "-fam##-\n" ) + 1) );
+        sprintf( temp, "-fam%d-\n", ++i );
+        buffer = realloc( buffer, sizeof( char ) * (strlen( buffer ) + strlen( temp ) + 1) );
+        strcat( buffer, temp );
+        free( temp );
+        temp = printFamily( elem );
+        buffer = realloc( buffer, sizeof( char ) * (strlen( buffer ) + strlen( temp ) + 3) );
+        strcat( buffer, temp );
+        strcat( buffer, "\n" );
+        free( temp );
+    }
+    return buffer;
+}
 
 
 /**
@@ -46,7 +211,21 @@ char* printGEDCOM( const GEDCOMobject* obj );
  * @return none
  * @param obj - a pointer to a GEDCOMobject struct
  **/
-void deleteGEDCOM( GEDCOMobject* obj );
+void deleteGEDCOM( GEDCOMobject* obj ) {
+    if (obj->header != NULL) {
+        deleteHeader( obj->header );
+    }
+    if (obj->submitter != NULL) {
+        deleteSubmitter( obj->submitter );
+    }
+    if (getLength( obj->individuals ) != 0) {
+        clearList( &(obj->individuals) );
+    }
+    if (getLength( obj->families ) != 0) {
+        clearList( &(obj->families) );
+    }
+    free( obj );
+}
 
 
 /**
@@ -59,34 +238,34 @@ char* printError( GEDCOMerror err ) {
     char* string = NULL;
     switch (err.type) {
         case OK:
-            string = malloc( sizeof( char ) * (strlen( "OK - no error\n" ) + 1) );
-            strcpy( string, "OK - no error\n" );
+            string = malloc( sizeof( char ) * (strlen( "OK - no error " ) + 1) );
+            strcpy( string, "OK - no error " );
             break;
         case INV_FILE:
-            string = malloc( sizeof( char ) * (strlen( "Invalid file\n" ) + 1) );
-            strcpy( string, "Invalid file\n" );
+            string = malloc( sizeof( char ) * (strlen( "Invalid file " ) + 1) );
+            strcpy( string, "Invalid file " );
             break;
         case INV_GEDCOM:
-            string = malloc( sizeof( char ) * (strlen( "Invalid GEDCOM\n" ) + 1) );
-            strcpy( string, "Invalid GEDCOM\n" );
+            string = malloc( sizeof( char ) * (strlen( "Invalid GEDCOM " ) + 1) );
+            strcpy( string, "Invalid GEDCOM " );
             break;
         case INV_HEADER:
-            string = malloc( sizeof( char ) * (strlen( "Invalid header\n" ) + 1) );
-            strcpy( string, "Invalid header\n" );
+            string = malloc( sizeof( char ) * (strlen( "Invalid header " ) + 1) );
+            strcpy( string, "Invalid header " );
             break;
         case INV_RECORD:
-            string = malloc( sizeof( char ) * (strlen( "Invalid record\n" ) + 1) );
-            strcpy( string, "Invalid record\n" );
+            string = malloc( sizeof( char ) * (strlen( "Invalid record " ) + 1) );
+            strcpy( string, "Invalid record " );
             break;
         case OTHER:
-            string = malloc( sizeof( char ) * (strlen( "Non-GEDCOM related error\n" ) + 1) );
-            strcpy( string, "Non-GEDCOM related error\n" );
+            string = malloc( sizeof( char ) * (strlen( "Non-GEDCOM related error " ) + 1) );
+            strcpy( string, "Non-GEDCOM related error " );
             break;
         default:
             return NULL;
     }
-    char num[5];
-    sprintf( num, "%d", err.line );
+    char num[15];
+    sprintf( num, "(line %d)", err.line );
     string = realloc( string, sizeof( char ) * (strlen( string ) + strlen( num ) + 2) );
     strcat( string, num );
     strcat( string, "\n" );
@@ -182,26 +361,26 @@ char* printEvent(void* toBePrinted) {
     if (event.type != NULL) {
         string = realloc( string, sizeof( char ) * (strlen( event.type ) + 3) );
         strcpy( string, event.type );
-        strcat( string, "\n\t" );
+        strcat( string, "  " );
     }
     if (event.date != NULL) {
         string = realloc( string, sizeof( char ) * (strlen( string ) + strlen( event.date ) + 3) );
         strcat( string, event.date );
-        strcat( string, "\n\t" );
+        strcat( string, "  " );
     }
     if (event.place != NULL) {
         string = realloc( string, sizeof( char ) * (strlen( string ) + strlen( event.place ) + 3) );
         strcat( string, event.place );
-        strcat( string, "\n\t" );
+        strcat( string, "  " );
     }
-    if( getLength( event.otherFields ) != 0) {
+    if (getLength( event.otherFields ) != 0) {
         ListIterator iter = createIterator( event.otherFields );
         void* elem;
         while ((elem = nextElement( &iter )) != NULL) {
             char* temp = printField( elem );
             string = realloc( string, sizeof( char ) * (strlen( string ) + strlen( temp ) + 3) );
             strcat( string, temp );
-            strcat( string, "\n\t" );
+            strcat( string, "  " );
         }
     }
     if (string != NULL) {
@@ -216,14 +395,18 @@ void deleteIndividual(void* toBeDeleted) {
 
     Individual* indi = ((Individual*)toBeDeleted);
 
-    if (indi->givenName != NULL)
+    if (indi->givenName != NULL) {
         free( indi->givenName );
-    if (indi->surname != NULL)
+        indi->givenName = NULL;
+    }
+    if (indi->surname != NULL) {
         free( indi->surname );
+        indi->surname = NULL;
+    }
     if (getLength( indi->events ) != 0)
         clearList( &(indi->events) );
-    //if (getLength( indi->families ) != 0)
-    //    clearList( &(indi->families) );
+    if (getLength( indi->families ) != 0)
+        clearList( &(indi->families) );
     if (getLength( indi->otherFields ) != 0)
         clearList( &(indi->otherFields) );
 
@@ -268,7 +451,7 @@ char* printIndividual( void* toBePrinted ) {
     if (toBePrinted == NULL) return NULL;
 
     Individual indi = *((Individual*)toBePrinted);
-    char* string = NULL;
+    char* string = calloc( sizeof( char ), 1 );
     if (indi.givenName != NULL) {
         string = realloc( string, sizeof( char ) * (strlen( indi.givenName ) + 2) );
         strcpy( string, indi.givenName );
@@ -286,11 +469,11 @@ char* printIndividual( void* toBePrinted ) {
             char* temp = printEvent( elem );
             string = realloc( string, sizeof( char ) * (strlen( string ) + strlen( temp ) + 3) );
             strcat( string, temp );
-            strcat( string, "\n" );
+            //strcat( string, "\n" );
             free( temp );
         }
     }
-    if (getLength( indi.otherFields ) != 0) {
+    /*if (getLength( indi.otherFields ) != 0) {
         ListIterator iter = createIterator( indi.otherFields );
         void* elem;
         while ((elem = nextElement( &iter )) != NULL) {
@@ -300,7 +483,7 @@ char* printIndividual( void* toBePrinted ) {
             strcat( string, "\n" );
             free( temp );
         }
-    }
+    }*/
     return string;
 }
 
@@ -308,10 +491,14 @@ void deleteFamily(void* toBeDeleted) {
     if (toBeDeleted == NULL) return;
 
     Family *fam = ((Family*)toBeDeleted);
-    //if (getLength( fam->children ) != 0)
-        //clearList( &(fam->children) );
+    fam->husband = NULL;
+    fam->wife = NULL;
+    if (getLength( fam->children ) != 0)
+        clearList( &(fam->children) );
     if (getLength( fam->otherFields ) != 0)
         clearList( &(fam->otherFields) );
+    if (getLength( fam->events ) != 0)
+        clearList( &(fam->events) );
 
     free( fam );
 }
@@ -336,7 +523,7 @@ char* printFamily( void* toBePrinted ) {
     if (toBePrinted == NULL) return NULL;
 
     Family fam = *((Family*)toBePrinted);
-    char* string = NULL;
+    char* string = calloc( sizeof( char ), 1 );
     if (fam.husband != NULL) {
         string = realloc( string, sizeof( char ) * 6);
         strcpy( string, "HUSB " );
@@ -370,23 +557,35 @@ char* printFamily( void* toBePrinted ) {
         void* element;
         while ((element = nextElement( &iter )) != NULL) {
             char* tmp = printIndividual( element );
-            string = realloc( string, sizeof( char ) * (strlen( string ) + strlen( tmp ) + 7) );
+            string = realloc( string, sizeof( char ) * (strlen( string ) + strlen( tmp ) + 10) );
             strcat( string, "CHIL " );
             strcat( string, tmp );
             strcat( string, "\n" );
             free( tmp );
         }
     }
-    if (getLength( fam.otherFields ) != 0) {
+    if (getLength( fam.events ) != 0) {
+        ListIterator iter = createIterator( fam.events );
+        void* element;
+        while ((element = nextElement( &iter )) != NULL) {
+            char* tmp = printEvent( element );
+            string = realloc( string, sizeof( char ) * (strlen( string ) + strlen( tmp ) + 3) );
+            strcat( string, tmp );
+            //strcat( string, "\n" );
+            free( tmp );
+        }
+    }
+    /*if (getLength( fam.otherFields ) != 0) {
         ListIterator iter = createIterator( fam.otherFields );
         void* element;
         while ((element = nextElement( &iter )) != NULL) {
             char* tmp = printField( element );
-            string = realloc( string, sizeof( char ) * (strlen( string ) + strlen( tmp ) + 1) );
+            string = realloc( string, sizeof( char ) * (strlen( string ) + strlen( tmp ) + 3) );
             strcat( string, tmp );
+            strcat( string, "\n" );
             free( tmp );
         }
-    }
+    }*/
     if (string != NULL) {
         string = realloc( string, sizeof( char ) * (strlen( string ) + 2) );
         strcat( string, "\n" );
@@ -406,7 +605,6 @@ void deleteField(void* toBeDeleted) {
     }
     free( temp );
 }
-
 int compareFields(const void* first, const void* second) {
     if (first == NULL || second == NULL) {
         return OTHER;
@@ -441,7 +639,6 @@ int compareFields(const void* first, const void* second) {
         return 0;
     }
 }
-
 char* printField(void* toBePrinted) {
     if (toBePrinted == NULL) return NULL;
     Field temp = *((Field*)toBePrinted);
