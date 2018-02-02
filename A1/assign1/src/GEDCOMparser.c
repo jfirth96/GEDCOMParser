@@ -23,31 +23,49 @@
  * @param a double pointer to a GEDCOMobject struct that needs to be allocated
  **/
 GEDCOMerror createGEDCOM( char* fileName, GEDCOMobject** obj ) {
-    if (fileName == NULL)
+    /* Intialize the global reference array */
+    refCount = 0;
+    if (fileName == NULL || strlen( fileName ) == 0) {
+        *obj = NULL;
+        obj = NULL;
         return createError( INV_FILE, -1 );
-    /*else {
+    } else {
         char* temp;
+        char* copy = malloc( sizeof( char ) * (strlen( fileName ) + 1) );
+        strcpy( copy, fileName );
         temp = strtok( fileName, "." );
         if (temp == NULL) {
+            *obj = NULL;
+            obj = NULL;
+            free( copy );
             return createError( INV_FILE, -1 );
         }
-        temp = strtok( NULL, "\0" );
+        temp = strtok( NULL, "" );
         if (temp == NULL) {
+            *obj = NULL;
+            obj = NULL;
+            free( copy );
             return createError( INV_FILE, -1 );
         }
         if (strcmp( temp, "ged" ) != 0) {
-            //return createError( INV_FILE, -1 );
+            *obj = NULL;
+            obj = NULL;
+            free( copy );
+            return createError( INV_FILE, -1 );
         }
-    }*/
-
-    (*obj)->header = NULL;
-    (*obj)->submitter = NULL;
-
+        strcpy( fileName, copy );
+        free( copy );
+    }
     FILE* file = fopen( fileName, "r" );
     if (file == NULL) {
+        *obj = NULL;
+        obj = NULL;
         return createError( INV_FILE, -1 );
     }
 
+    *obj = calloc( sizeof( GEDCOMobject ), 1 );
+    (*obj)->header = NULL;
+    (*obj)->submitter = NULL;
     (*obj)->individuals = initializeList( &printIndividual, &deleteIndividual, &compareIndividuals );
     (*obj)->families = initializeList( &printFamily, &deleteFamily, &compareFamilies );
 
@@ -61,12 +79,67 @@ GEDCOMerror createGEDCOM( char* fileName, GEDCOMobject** obj ) {
         count = 0;
         record = realloc( record, sizeof( GEDCOMline* ) * (count + 1) );
         record[count] = createGEDCOMline( temp );
+        if (strcmp( record[count]->tag, "CONC" ) == 0) {
+            modifyGEDCOMline( record[count - 1], record[count]->lineValue );
+        } else if (strcmp( record[count]->tag, "CONT" ) == 0) {
+            char* temp = calloc( sizeof( char ), strlen( record[count]->lineValue ) + 2 );
+            strcpy( temp, "\n" );
+            strcat( temp, record[count]->lineValue );
+            modifyGEDCOMline( record[count - 1], temp );
+            free( temp );
+        }
+        if (record[count] == NULL) {
+            // free everything return NULL
+            GEDCOMerror err = createError( INV_RECORD, record[count - 1]->lineNumber );
+            for (int i = 0; i < count; i++) {
+                deleteGEDCOMline( record[i] );
+            }
+            for (int i = 0; i < refCount; i++) {
+                free( referenceArray[i]->extRefID );
+                free( referenceArray[i] );
+            }
+            free( referenceArray );
+            free( record );
+            fclose( file );
+            deleteGEDCOM( *obj );
+            *obj = NULL;
+            obj = NULL;
+            return err;
+        }
         record[count]->lineNumber = lineNumber + 1;
         count++;
         lineNumber++;
         if ((p = robust_fgets( temp, 254, file )) == NULL) {
             if (strcmp( record[count - 1]->tag, "TRLR" ) != 0) {
                 // free everything, return INV_GEDCOM
+                GEDCOMerror err = createError( INV_GEDCOM, record[count - 1]->lineNumber );
+                for (int i = 0; i < count; i++) {
+                    deleteGEDCOMline( record[i] );
+                }
+                if (hasHead) {
+                    deleteHeader( (*obj)->header );
+                }
+                if (hasSubmit) {
+                    deleteSubmitter( (*obj)->submitter );
+                }
+                if (getLength( (*obj)->individuals ) != 0) {
+                    clearList( &((*obj)->individuals) );
+                }
+                if (getLength( (*obj)->families ) != 0) {
+                    clearList( &((*obj)->families) );
+                }
+                for (int i = 0; i < refCount; i++) {
+                    free( referenceArray[i]->extRefID );
+                    free( referenceArray[i] );
+                }
+                free( referenceArray );
+                free( record );
+                fclose( file );
+                free( *obj );
+                //free( obj );
+                *obj = NULL;
+                obj = NULL;
+                return err;
             } else {
                 hasTrailer = true;
             }
@@ -83,6 +156,33 @@ GEDCOMerror createGEDCOM( char* fileName, GEDCOMobject** obj ) {
             }
             record = realloc( record, sizeof( GEDCOMline* ) * (count + 1) );
             record[count] = createGEDCOMline( temp );
+            if (record[count] == NULL) {
+                // free everything return NULL
+                GEDCOMerror err = createError( INV_RECORD, record[count - 1]->lineNumber );
+                for (int i = 0; i < count; i++) {
+                    deleteGEDCOMline( record[i] );
+                }
+                for (int i = 0; i < refCount; i++) {
+                    free( referenceArray[i]->extRefID );
+                    free( referenceArray[i] );
+                }
+                free( referenceArray );
+                free( record );
+                fclose( file );
+                deleteGEDCOM( *obj );
+                *obj = NULL;
+                obj = NULL;
+                return err;
+            }
+            if (strcmp( record[count]->tag, "CONC" ) == 0) {
+                modifyGEDCOMline( record[count - 1], record[count]->lineValue );
+            } else if (strcmp( record[count]->tag, "CONT" ) == 0) {
+                char* temp = calloc( sizeof( char ), strlen( record[count]->lineValue ) + 2 );
+                strcpy( temp, "\n" );
+                strcat( temp, record[count]->lineValue );
+                modifyGEDCOMline( record[count - 1], temp );
+                free( temp );
+            }
             record[count]->lineNumber = lineNumber + 1;
             count++;
             lineNumber++;
@@ -90,58 +190,108 @@ GEDCOMerror createGEDCOM( char* fileName, GEDCOMobject** obj ) {
         } while (1);
 
 
-        if (record[0]->level == 0) {
-            // validate 0-level tag
-            if (strcmp( record[0]->tag, "HEAD" ) == 0) {
-                // create header, pass array of lines and parse in the function
-                (*obj)->header = createHeader( record, count );
-                if ((*obj)->header == NULL) {
-                    // free everything
-                    // return INV_HEADER;
-                    //GEDCOMerror err = createError( INV_HEADER, record[count - 1]->lineNumber );
-                    for (int i = 0; i < count; i++) {
-                        deleteGEDCOMline( record[i] );
-                    }
-                    free( record );
-                    //return err;
+        if (strcmp( record[0]->tag, "HEAD" ) == 0) {
+            // create header, pass array of lines and parse in the function
+            (*obj)->header = createHeader( record, count );
+            if ((*obj)->header == NULL) {
+                GEDCOMerror err = createError( INV_HEADER, record[count - 1]->lineNumber );
+                for (int i = 0; i < count; i++) {
+                    deleteGEDCOMline( record[i] );
                 }
-            } else if (strcmp( record[0]->tag, "SUBM" ) == 0) {
-                // create submitter, pass array of lines and parse in the function
-                (*obj)->submitter = createSubmitter( record, count );
-            } else if (strcmp( record[0]->tag, "INDI" ) == 0) {
-                // create individual, pass array of lines and parse in the function
-                Individual* indi = createIndividual( record, count );
-                insertSorted( &((*obj)->individuals), (void*)indi );
-            } else if (strcmp( record[0]->tag, "FAM" ) == 0) {
-                // create family, pass array of lines and parse in the function
-                Family* fam = createFamily( record, count );
-                insertSorted( &((*obj)->families), (void*)fam );
+                return err;
             } else {
-                //break;
+                hasHead = true;
             }
-        } else if (record[0]->level == 1) {
-            // validate 1-level tag
-            if (strcmp( record[0]->tag, "HEAD") == 0) {
-                // throw INV_HEADER
+        } else if (strcmp( record[0]->tag, "SUBM" ) == 0) {
+            // create submitter, pass array of lines and parse in the function
+            (*obj)->submitter = createSubmitter( record, count );
+            if ((*obj)->submitter == NULL) {
+                // free everything
+                // return INV_RECORD; ????
+                GEDCOMerror err = createError( INV_RECORD, record[count - 1]->lineNumber );
+                for (int i = 0; i < count; i++) {
+                    deleteGEDCOMline( record[i] );
+                }
+                if (hasHead) {
+                    deleteHeader( (*obj)->header );
+                }
+                if (getLength( (*obj)->individuals ) != 0) {
+                    clearList( &((*obj)->individuals) );
+                }
+                if (getLength( (*obj)->families ) != 0) {
+                    clearList( &((*obj)->families) );
+                }
+                for (int i = 0; i < refCount; i++) {
+                    free( referenceArray[i]->extRefID );
+                    free( referenceArray[i] );
+                }
+                free( referenceArray );
+                free( record );
+                fclose( file );
+                free( *obj );
+                free( obj );
+                obj = NULL;
+                return err;
             } else {
-
+                hasSubmit = true;
+                hasRecord = true;
             }
-        } else if (record[0]->level == 2) {
-            // must have a value or CONT|CONC as the tag
+        } else if (strcmp( record[0]->tag, "INDI" ) == 0) {
+            // create individual, pass array of lines and parse in the function
+            Individual* indi = createIndividual( record, count );
+            if (indi == NULL) {
+                // free everything
+                GEDCOMerror err = createError( INV_RECORD, record[count - 1]->lineNumber );
+                for (int i = 0; i < count; i++) {
+                    deleteGEDCOMline( record[i] );
+                }
+                for (int i = 0; i < refCount; i++) {
+                    free( referenceArray[i]->extRefID );
+                    free( referenceArray[i] );
+                }
+                free( referenceArray );
+                deleteGEDCOM( *obj );
+                free( record );
+                fclose( file );
+                free( *obj );
+                *obj = NULL;
+                free( obj );
+                obj = NULL;
+                return err;
+            } else {
+                if (record[0]->extRefID != NULL) {
+                    referenceArray = realloc( referenceArray, sizeof( RefPair* ) * (refCount + 1) );
+                    referenceArray[refCount] = calloc( sizeof( RefPair ), 1 );
+                    referenceArray[refCount]->extRefID = malloc( sizeof( char ) * (strlen( record[0]->extRefID ) + 1) );
+                    strcpy( referenceArray[refCount]->extRefID, record[0]->extRefID );
+                    referenceArray[refCount]->indi = indi;
+                    refCount++;
+                }
+            }
+            insertBack( &((*obj)->individuals), (void*)indi );
+        } else if (strcmp( record[0]->tag, "FAM" ) == 0) {
+            // create family, pass array of lines and parse in the function
+            Family* fam = createFamily( record, count );
+            insertSorted( &((*obj)->families), (void*)fam );
         }
-        //}
         for (int i = 0; i < count; i++) {
             deleteGEDCOMline( record[i] );
         }
         free( record );
         record = NULL;
     }
-    //free( temp );
-    //free( temp2 );
     fclose( file );
-    return createError( OK, 0 );
+    for (int i = 0; i < refCount; i++) {
+        free( referenceArray[i]->extRefID );
+        free( referenceArray[i] );
+    }
+    free( referenceArray );
+    if (hasHead && hasSubmit && hasTrailer && hasRecord ) {
+        return createError( OK, -1 );
+    } else {
+        return createError( INV_GEDCOM, -1 );
+    }
 }
-
 
 /**
  * Function to create a string representation of a GEDCOMobject.
@@ -201,7 +351,6 @@ char* printGEDCOM( const GEDCOMobject* obj ) {
     }
     return buffer;
 }
-
 
 /**
  * Function to delete all GEDCOM object content and free all the memory.
@@ -288,7 +437,22 @@ char* printError( GEDCOMerror err ) {
  * Note: while the arguments of compare() and person are all void, it is assumed that records they point to are
  *   all of the same type - just like arguments to the compare() function in the List struct
  **/
-Individual* findPerson( const GEDCOMobject* familyRecord, bool (*compare)( const void* first, const void* second ), const void* person );
+Individual* findPerson( const GEDCOMobject* familyRecord, bool (*compare)( const void* first, const void* second ), const void* person ) {
+    if (person == NULL) {
+        return NULL;
+    }
+
+    if (getLength( familyRecord->individuals ) != 0) {
+        ListIterator iter =  createIterator( familyRecord->individuals );
+        void* elem;
+        while ((elem = nextElement( &iter )) != NULL) {
+            if (compare( elem, person )) {
+                return (Individual*)elem;
+            }
+        }
+    }
+    return NULL;
+}
 
 
 /**
@@ -309,20 +473,26 @@ List getDescendants( const GEDCOMobject* familyRecord, const Individual* person 
 
 //****************************************** List helper functions *******************************************
 void deleteEvent(void* toBeDeleted) {
-    if (toBeDeleted == NULL) return;
+    if (toBeDeleted == NULL) {
+        return;
+    }
 
     Event *event = ((Event*)toBeDeleted);
-    if (event->date != NULL)
+    if (event->date != NULL) {
         free( event->date );
-    if (event->place != NULL)
+    }
+    if (event->place != NULL) {
         free( event->place );
-    if (getLength( event->otherFields ) != 0)
+    }
+    if (getLength( event->otherFields ) != 0) {
         clearList( &(event->otherFields) );
-
+    }
     free( event );
 }
 int compareEvents(const void* first,const void* second) {
-    if (first == NULL || second == NULL) return OTHER;
+    if (first == NULL || second == NULL) {
+        return OTHER;
+    }
 
     Event event1 = *((Event*)first);
     Event event2 = *((Event*)second);
@@ -354,7 +524,9 @@ int compareEvents(const void* first,const void* second) {
     } else return 0;
 }
 char* printEvent(void* toBePrinted) {
-    if (toBePrinted == NULL) return NULL;
+    if (toBePrinted == NULL) {
+        return NULL;
+    }
 
     Event event = *((Event*)toBePrinted);
     char* string = NULL;
@@ -391,7 +563,9 @@ char* printEvent(void* toBePrinted) {
 }
 
 void deleteIndividual(void* toBeDeleted) {
-    if (toBeDeleted == NULL) return;
+    if (toBeDeleted == NULL) {
+        return;
+    }
 
     Individual* indi = ((Individual*)toBeDeleted);
 
@@ -403,17 +577,21 @@ void deleteIndividual(void* toBeDeleted) {
         free( indi->surname );
         indi->surname = NULL;
     }
-    if (getLength( indi->events ) != 0)
+    if (getLength( indi->events ) != 0) {
         clearList( &(indi->events) );
-    if (getLength( indi->families ) != 0)
+    }
+    if (getLength( indi->families ) != 0) {
         clearList( &(indi->families) );
-    if (getLength( indi->otherFields ) != 0)
+    }
+    if (getLength( indi->otherFields ) != 0) {
         clearList( &(indi->otherFields) );
-
+    }
     free( indi );
 }
 int compareIndividuals(const void* first,const void* second) {
-    if (first == NULL || second == NULL) return OTHER;
+    if (first == NULL || second == NULL) {
+        return OTHER;
+    }
 
     Individual indiv1 = *((Individual*)first);
     Individual indiv2 = *((Individual*)second);
@@ -445,10 +623,14 @@ int compareIndividuals(const void* first,const void* second) {
         return 1;
     } else if (compareVal < 0) {
         return -1;
-    } else return 0;
+    } else {
+        return 0;
+    }
 }
 char* printIndividual( void* toBePrinted ) {
-    if (toBePrinted == NULL) return NULL;
+    if (toBePrinted == NULL) {
+        return NULL;
+    }
 
     Individual indi = *((Individual*)toBePrinted);
     char* string = calloc( sizeof( char ), 1 );
@@ -469,41 +651,35 @@ char* printIndividual( void* toBePrinted ) {
             char* temp = printEvent( elem );
             string = realloc( string, sizeof( char ) * (strlen( string ) + strlen( temp ) + 3) );
             strcat( string, temp );
-            //strcat( string, "\n" );
             free( temp );
         }
     }
-    /*if (getLength( indi.otherFields ) != 0) {
-        ListIterator iter = createIterator( indi.otherFields );
-        void* elem;
-        while ((elem = nextElement( &iter )) != NULL) {
-            char* temp = printField( elem );
-            string = realloc( string, sizeof( char ) * (strlen( string ) + strlen( temp ) + 3) );
-            strcat( string, temp );
-            strcat( string, "\n" );
-            free( temp );
-        }
-    }*/
     return string;
 }
 
 void deleteFamily(void* toBeDeleted) {
-    if (toBeDeleted == NULL) return;
+    if (toBeDeleted == NULL) {
+        return;
+    }
 
-    Family *fam = ((Family*)toBeDeleted);
+    Family* fam = ((Family*)toBeDeleted);
     fam->husband = NULL;
     fam->wife = NULL;
-    if (getLength( fam->children ) != 0)
+    if (getLength( fam->children ) != 0) {
         clearList( &(fam->children) );
-    if (getLength( fam->otherFields ) != 0)
+    }
+    if (getLength( fam->otherFields ) != 0) {
         clearList( &(fam->otherFields) );
-    if (getLength( fam->events ) != 0)
+    }
+    if (getLength( fam->events ) != 0) {
         clearList( &(fam->events) );
-
+    }
     free( fam );
 }
 int compareFamilies( const void* first, const void* second ) {
-    if (first == NULL || second == NULL) return OTHER;
+    if (first == NULL || second == NULL) {
+        return OTHER;
+    }
 
     Family fam1 = *((Family*)first);
     Family fam2 = *((Family*)second);
@@ -520,37 +696,40 @@ int compareFamilies( const void* first, const void* second ) {
     }
 }
 char* printFamily( void* toBePrinted ) {
-    if (toBePrinted == NULL) return NULL;
+    if (toBePrinted == NULL) {
+        return NULL;
+    }
 
     Family fam = *((Family*)toBePrinted);
     char* string = calloc( sizeof( char ), 1 );
     if (fam.husband != NULL) {
         string = realloc( string, sizeof( char ) * 6);
         strcpy( string, "HUSB " );
-        if (fam.husband->givenName != NULL) {
-            string = realloc( string, sizeof( char ) * (strlen( string ) + strlen( fam.husband->givenName ) + 1) );
-            strcat( string, fam.husband->givenName );
-        }
-        if (fam.husband->surname != NULL) {
-            string = realloc( string, sizeof( char ) * (strlen( string ) + strlen( fam.husband->surname ) + 3) );
-            strcat( string, " " );
-            strcat( string, fam.husband->surname );
-        }
+        char* temp = printIndividual( fam.husband );
+        string = realloc( string, sizeof( char ) * (strlen( string ) + strlen( temp ) + 3) );
+        strcat( string, temp );
         strcat( string, "\n" );
+        free( temp );
     }
     if (fam.wife != NULL) {
         string = realloc( string, sizeof( char ) * (strlen( string ) + 6));
         strcat( string, "WIFE " );
-        if (fam.wife->givenName != NULL) {
-            string = realloc( string, sizeof( char ) * (strlen( string ) + strlen( fam.wife->givenName ) + 1) );
-            strcat( string, fam.wife->givenName );
-        }
-        if (fam.wife->surname != NULL) {
-            string = realloc( string, sizeof( char ) * (strlen( string ) + strlen( fam.wife->surname ) + 3) );
-            strcat( string, " " );
-            strcat( string, fam.wife->surname );
-        }
+        char* temp = printIndividual( fam.wife );
+        string = realloc( string, sizeof( char ) * (strlen( string ) + strlen( temp ) + 3) );
+        strcat( string, temp );
         strcat( string, "\n" );
+        free( temp );
+    }
+    if (getLength( fam.events ) != 0) {
+        ListIterator iter = createIterator( fam.events );
+        void* element;
+        while ((element = nextElement( &iter )) != NULL) {
+            char* tmp = printEvent( element );
+            string = realloc( string, sizeof( char ) * (strlen( string ) + strlen( tmp ) + 3) );
+            strcat( string, tmp );
+            strcat( string, "\n" );
+            free( tmp );
+        }
     }
     if (getLength( fam.children) != 0) {
         ListIterator iter = createIterator( fam.children );
@@ -564,28 +743,6 @@ char* printFamily( void* toBePrinted ) {
             free( tmp );
         }
     }
-    if (getLength( fam.events ) != 0) {
-        ListIterator iter = createIterator( fam.events );
-        void* element;
-        while ((element = nextElement( &iter )) != NULL) {
-            char* tmp = printEvent( element );
-            string = realloc( string, sizeof( char ) * (strlen( string ) + strlen( tmp ) + 3) );
-            strcat( string, tmp );
-            //strcat( string, "\n" );
-            free( tmp );
-        }
-    }
-    /*if (getLength( fam.otherFields ) != 0) {
-        ListIterator iter = createIterator( fam.otherFields );
-        void* element;
-        while ((element = nextElement( &iter )) != NULL) {
-            char* tmp = printField( element );
-            string = realloc( string, sizeof( char ) * (strlen( string ) + strlen( tmp ) + 3) );
-            strcat( string, tmp );
-            strcat( string, "\n" );
-            free( tmp );
-        }
-    }*/
     if (string != NULL) {
         string = realloc( string, sizeof( char ) * (strlen( string ) + 2) );
         strcat( string, "\n" );
@@ -594,7 +751,9 @@ char* printFamily( void* toBePrinted ) {
 }
 
 void deleteField(void* toBeDeleted) {
-    if (toBeDeleted == NULL) return;
+    if (toBeDeleted == NULL) {
+        return;
+    }
 
     Field* temp = ((Field*)toBeDeleted);
     if (temp->tag != NULL) {
@@ -625,22 +784,21 @@ int compareFields(const void* first, const void* second) {
     strcat( stringOne, one.value );
     strcat( stringTwo, two.value );
 
-    if (strcmp( stringOne, stringTwo ) > 0) {
-        free( stringOne );
-        free( stringTwo );
+    int comp = strcmp( stringOne, stringTwo );
+    free( stringOne );
+    free( stringTwo );
+    if (comp > 0) {
         return 1;
-    } else if (strcmp( stringOne, stringTwo ) < 0) {
-        free( stringOne );
-        free( stringTwo );
+    } else if (comp < 0) {
         return -1;
     } else {
-        free( stringOne );
-        free( stringTwo );
         return 0;
     }
 }
 char* printField(void* toBePrinted) {
-    if (toBePrinted == NULL) return NULL;
+    if (toBePrinted == NULL) {
+        return NULL;
+    }
     Field temp = *((Field*)toBePrinted);
 
     if (temp.tag == NULL || temp.value == NULL) {
@@ -648,7 +806,6 @@ char* printField(void* toBePrinted) {
     }
 
     char* stringOne = malloc( sizeof( char ) * (strlen( temp.tag ) + strlen( temp.value ) + 3) );
-
     strcpy( stringOne, temp.tag );
     strcat( stringOne, " " );
     strcat( stringOne, temp.value );

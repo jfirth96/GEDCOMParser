@@ -11,6 +11,16 @@
 #include <stdbool.h>
 #include "GEDCOMparser.h"
 
+
+typedef struct refPair {
+    char* extRefID;
+    Individual* indi;
+} RefPair;
+
+/* Used to keep track of what @I00@ tag maps to which Individual */
+RefPair** referenceArray;
+int refCount;
+
 typedef enum relatCode { HUSB, WIFE, CHIL } RelationType;
 
 /* Used for indicating the record type to provide a generic utility to add fields to the list
@@ -66,6 +76,9 @@ bool addFieldToRecord( void* record, Field* toAdd, RecordType type );
  * @return True on successful modification, false otherwise
  */
 bool addToFamily( Family* fam, Individual* indi, RelationType relation );
+
+/* Used for testing findPerson. Compares based on first and last names */
+bool compareFunc( const void* first, const void* second );
 
 /**
  * Function to convert from GEDCOM date format (i.e. 12 JAN 2018) to format able to be used in

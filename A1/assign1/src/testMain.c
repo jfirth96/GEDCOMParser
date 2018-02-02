@@ -7,38 +7,33 @@
 #include "LinkedListAPI.h"
 
 int main( int argc, char** argv ) {
-    char* print1;
-
-    GEDCOMobject* obj = malloc( sizeof( GEDCOMobject ) );
-    print1 = malloc( sizeof( char ) * 11 );
-    strcpy( print1, "output.ged" );
-    printf( "args\n" );
-    for (int i = 0; i < argc; i++) {
-        printf( "%s\n", argv[i] );
-    }
+    GEDCOMobject* obj = NULL;
     GEDCOMerror err1 = createGEDCOM( argv[1], &obj );
-    free( print1 );
-    /*print1 = printHeader( obj->header );
-    printf( "HEAD> %s\n", print1 );
-    free( print1 );
+
+    Individual* test = calloc( sizeof( Individual ), 1 );
+    test->givenName = calloc( sizeof( char ), (strlen( "William" ) + 1) );
+    strcpy( test->givenName, "William" );
+    test->surname = calloc( sizeof( char ), (strlen( "Shakespeare" ) + 1) );
+    strcpy( test->surname, "Shakespeare" );
+    Individual* temp = findPerson( obj, &compareFunc, (void*)test );
+    if (temp != NULL) {
+        printf( "Found: %s %s\n", temp->givenName, temp->surname );
+    } else {
+        printf( "Could not find person\n" );
+    }
+    free( test->givenName );
+    free( test->surname );
+    free( test );
+
+    char* print1;
+    if (obj != NULL) {
+        print1 = printGEDCOM( obj );
+        printf( "%s", print1 );
+        free( print1 );
+        deleteGEDCOM( obj );
+    }
     print1 = printError( err1 );
-    printf( "ERR> %s\n", print1 );
-    free( print1 );
-    print1 = printSubmitter( obj->submitter );
-    printf( "SUBM> %s\n", print1 );
-    free( print1 );
-    print1 = printIndividual( obj->individuals.head->data );
-    printf( "INDIV>\n%s", print1 );
-    free( print1 );*/
-    print1 = printGEDCOM( obj );
     printf( "%s", print1 );
     free( print1 );
-    deleteGEDCOM( obj );
-    /*deleteHeader( obj->header );
-    deleteSubmitter( obj->submitter );
-    clearList( &(obj->individuals) );
-    clearList( &(obj->families) );
-    free( obj );*/
-
     return 0;
 }

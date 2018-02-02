@@ -16,18 +16,19 @@
 /************************** Internal Functions ********************************/
 
 /**
- * Function to parse a GEDCOMline from a given string
  *
- * @param line The string to be parsed
- * @return GEDCOMline pointer to the properly allocated line
  */
-GEDCOMline* parseGEDCOMline( char* line );
+int compareReferencePairs( const void* first, const void* second );
 
 /**
  * Used to implement strong and weak references
  */
 void dummyDelete( void* arg );
 
+/**
+ *
+ */
+Individual* findReference( char* input );
 
 /**
  *
@@ -50,38 +51,73 @@ bool isFamEvent( char* tag );
 bool isIndividualEvent( char* tag );
 
 /**
+ * Function to parse a GEDCOMline from a given string
+ *
+ * @param line The string to be parsed
+ * @return GEDCOMline pointer to the properly allocated line
+ */
+GEDCOMline* parseGEDCOMline( char* line );
+
+/**
  * Removes the newline character from the given string
  *
  * @param line The string to remove the newline from
  */
 void removeHardReturn( char *line );
 
+bool compareFunc( const void* first, const void* second ) {
+    if (first == NULL || second == NULL) {
+        return false;
+    }
+    Individual* one = (Individual*)first;
+    Individual* two = (Individual*)second;
+
+    if (one->givenName != NULL && two->givenName != NULL) {
+        if (strcmp( one->givenName, two->givenName ) == 0) {
+            if (one->surname != NULL && two->surname != NULL) {
+                if (strcmp( one->surname, two->surname ) == 0) {
+                    return true;
+                } else {
+                    return false;
+                }
+            } else {
+                return false;
+            }
+        } else {
+            return false;
+        }
+    } else {
+        return false;
+    }
+}
+
 /************************ End of Internal Functions ***************************/
 
 bool addEventToRecord( void* record, Event* toAdd, RecordType type ) {
-    if (record == NULL || toAdd == NULL)
+    if (record == NULL || toAdd == NULL) {
         return false;
-
-        Individual* indiv;
-        Family* fam;
-        switch (type) {
-            case INDI:
-                indiv = ((Individual*)record);
-                insertSorted( &(indiv->events), (void*)toAdd );
-                break;
-            case FAM:
-                fam = ((Family*)record);
-                insertSorted( &(fam->events), (void*)toAdd );
-                break;
-            default:
-                break;
-        }
+    }
+    Individual* indiv;
+    Family* fam;
+    switch (type) {
+        case INDI:
+            indiv = ((Individual*)record);
+            insertSorted( &(indiv->events), (void*)toAdd );
+            break;
+        case FAM:
+            fam = ((Family*)record);
+            insertSorted( &(fam->events), (void*)toAdd );
+            break;
+        default:
+            break;
+    }
     return true;
 }
 
 bool addFieldToRecord( void* record, Field* toAdd, RecordType type ) {
-    if (record == NULL || toAdd == NULL)
+    if (record == NULL || toAdd == NULL) {
         return NULL;
+    }
 
     Family* fam;
     Individual* indi;
@@ -116,20 +152,15 @@ bool addFieldToRecord( void* record, Field* toAdd, RecordType type ) {
 }
 
 bool addToFamily( Family* fam, Individual* indi, RelationType relation ) {
-    if (fam == NULL || indi == NULL)
+    if (fam == NULL || indi == NULL) {
         return false;
+    }
 
     switch (relation) {
         case HUSB:
-            if (fam->husband != NULL) {
-                deleteIndividual( &(fam->husband) );
-            }
             fam->husband = indi;
             break;
         case WIFE:
-            if (fam->wife != NULL) {
-                deleteIndividual( &(fam->wife) );
-            }
             fam->wife = indi;
             break;
         case CHIL:
@@ -153,7 +184,7 @@ Event* createEvent( GEDCOMline** record, int count ) {
     Event* event = malloc( sizeof( Event ) );
     event->date = NULL;
     event->place = NULL;
-    event->otherFields = initializeList( &printEvent, &deleteEvent, &compareEvents );
+    event->otherFields = initializeList( &printField, &deleteField, &compareFields );
 
     strncpy( event->type, record[0]->tag, 4 );
     event->type[4] = '\0';
@@ -174,7 +205,11 @@ Event* createEvent( GEDCOMline** record, int count ) {
 }
 
 Family* createFamily( GEDCOMline** record, int count ) {
-    Family* fam = malloc( sizeof( Family ) );
+    if (record == NULL) {
+        return NULL;
+    }
+
+    Family* fam = calloc( sizeof( Family ), 1 );
     fam->husband = NULL;
     fam->wife = NULL;
     fam->children = initializeList( &printIndividual, &dummyDelete, &compareIndividuals );
@@ -186,6 +221,7 @@ Family* createFamily( GEDCOMline** record, int count ) {
             int j = i;
             int subCount = 1;
 
+            // Grab the lines pertaining to this event and place in subarray
             while (j < count - 1) {
                 if (record[j+1]->level != 1) {
                     subCount++;
@@ -194,10 +230,7 @@ Family* createFamily( GEDCOMline** record, int count ) {
                 }
                 j++;
             }
-            GEDCOMline** subarray = malloc( sizeof( GEDCOMline* ) * subCount );
-            for (int k = 0; k < subCount; k++) {
-                subarray[k] = NULL;
-            }
+            GEDCOMline** subarray = calloc( sizeof( GEDCOMline* ), subCount );
             j = i;
             for (int k = 0; k < subCount; k++) {
                 subarray[k] = record[j + k];
@@ -207,11 +240,20 @@ Family* createFamily( GEDCOMline** record, int count ) {
             free( subarray );
         } else {
             if (strcmp( record[i]->tag, "HUSB" ) == 0) {
-                // form linkage
+                Individual* temp = findReference( record[i]->lineValue );
+                if (temp != NULL) {
+                    addToFamily( fam, temp, HUSB );
+                }
             } else if (strcmp( record[i]->tag, "WIFE" ) == 0) {
-                // form linkage
+                Individual* temp = findReference( record[i]->lineValue );
+                if (temp != NULL) {
+                    addToFamily( fam, temp, WIFE );
+                }
             } else if (strcmp( record[i]->tag, "CHIL" ) == 0) {
-                // add to family
+                Individual* temp = findReference( record[i]->lineValue );
+                if (temp != NULL) {
+                    addToFamily( fam, temp, CHIL );
+                }
             } else {
                 addFieldToRecord( (void*)fam, createField( record[i]->tag, record[i]->lineValue ), FAM );
             }
@@ -221,10 +263,12 @@ Family* createFamily( GEDCOMline** record, int count ) {
 }
 
 Field* createField( char* tag, char* value ) {
-    if (tag == NULL)
+    if (tag == NULL) {
         return NULL;
-    if (strlen( tag ) > 31 || (value != NULL && strlen( value ) > 120))
+    }
+    if (strlen( tag ) > 31 || (value != NULL && strlen( value ) > 120)) {
         return NULL;
+    }
 
     Field* field = malloc( sizeof( Field ) );
     field->tag = malloc( sizeof( char ) * (strlen( tag ) + 1) );
@@ -235,26 +279,28 @@ Field* createField( char* tag, char* value ) {
         field->value = malloc( sizeof( char ) * (strlen( value ) + 1) );
         strcpy( field->value, value );
     }
-
     return field;
 }
 
 GEDCOMline* createGEDCOMline( char* input ) {
-    if (input == NULL)
+    if (input == NULL) {
         return NULL;
+    }
     GEDCOMline* line = parseGEDCOMline( input );
     return line;
 }
 
 Header* createHeader( GEDCOMline** record, int count ) {
-    if (record == NULL)
+    if (record == NULL) {
         return NULL;
+    }
     bool sourceFound, GEDCfound, submitFound, charSetFound;
     sourceFound = GEDCfound = submitFound = charSetFound = false;
 
     Header* head = malloc( sizeof( Header ) );
+    head->otherFields = initializeList( &printField, &deleteField, &compareFields );
     int i;
-    for (i = 0; i < count; i++) {
+    for (i = 1; i < count; i++) {
         if (isValidHeadTag( record[i]->tag )) {
             for (int j = 0; j < strlen( record[j]->tag ); j++) {
                 record[i]->tag[j] = toupper( record[i]->tag[j] );
@@ -265,9 +311,9 @@ Header* createHeader( GEDCOMline** record, int count ) {
                 sourceFound = true;
             } else if (strcmp( record[i]->tag, "GEDC" ) == 0) {
                 if (strcmp( record[i + 1]->tag, "VERS" ) != 0) {
-                    /*clearList( &head->otherFields );
+                    clearList( &head->otherFields );
                     free( head );
-                    return NULL;*/
+                    return NULL;
                 } else {
                     head->gedcVersion = atof( record[i + 1]->lineValue );
                     i++;
@@ -275,9 +321,9 @@ Header* createHeader( GEDCOMline** record, int count ) {
                 }
             } else if (strcmp( record[i]->tag, "CHAR" ) == 0) {
                 if (record[i]->lineValue == NULL) {
-                    /*clearList( &head->otherFields );
+                    clearList( &head->otherFields );
                     free( head );
-                    return NULL;*/
+                    return NULL;
                 } else {
                     head->encoding = getCharSetFromString( record[i]->lineValue );
                     charSetFound = true;
@@ -289,23 +335,25 @@ Header* createHeader( GEDCOMline** record, int count ) {
                 addFieldToRecord( (void*)head, createField( record[i]->tag, record[i]->lineValue ), HEAD );
             }
         } else {
-            /*clearList( &head->otherFields );
+            clearList( &head->otherFields );
             free( head );
-            return NULL;*/
+            return NULL;
         }
     }
     if (sourceFound == false || GEDCfound == false || submitFound == false || charSetFound == false) {
         // free everything and return NULL
-        /*clearList( &head->otherFields );
+        clearList( &(head->otherFields) );
         free( head );
-        return NULL;*/
+        return NULL;
     }
-
-    head->otherFields = initializeList( &printField, &deleteField, &compareFields );
     return head;
 }
 
 Individual* createIndividual( GEDCOMline** record, int count ) {
+    if (record == NULL || count < 0) {
+        return NULL;
+    }
+
     Individual* indi = malloc( sizeof( Individual ) );
     indi->givenName = NULL;
     indi->surname = NULL;
@@ -340,11 +388,24 @@ Individual* createIndividual( GEDCOMline** record, int count ) {
         } else {
             if (strcmp( record[i]->tag, "NAME" ) == 0) {
                 char* token = strtok( record[i]->lineValue, "/" );
-                indi->givenName = malloc( sizeof( char ) * (strlen( token ) + 1) );
-                strcpy( indi->givenName, token );
+                if (token == NULL) {
+                    indi->givenName = malloc( sizeof( char ) * (strlen( "" ) + 1) );
+                    strcpy( indi->givenName, "" );
+                } else {
+                    indi->givenName = malloc( sizeof( char ) * (strlen( token ) + 1) );
+                    if (token[strlen( token ) - 1] == ' ') {
+                        token[strlen( token ) - 1] = '\0';
+                    }
+                    strcpy( indi->givenName, token );
+                }
                 token = strtok( NULL, "/" );
-                indi->surname = malloc( sizeof( char ) * (strlen( token ) + 1) );
-                strcpy( indi->surname, token );
+                if (token == NULL) {
+                    indi->surname = malloc( sizeof( char ) * (strlen( "" ) + 1) );
+                    strcpy( indi->surname, "" );
+                } else {
+                    indi->surname = malloc( sizeof( char ) * (strlen( token ) + 1) );
+                    strcpy( indi->surname, token );
+                }
             } else {
                 addFieldToRecord( (void*)indi, createField( record[i]->tag, record[i]->lineValue ), INDI );
             }
@@ -354,6 +415,9 @@ Individual* createIndividual( GEDCOMline** record, int count ) {
 }
 
 Submitter* createSubmitter( GEDCOMline** record, int count ) {
+    if (record == NULL || count < 0) {
+        return NULL;
+    }
     Submitter* sub = malloc( sizeof( Submitter ) + (sizeof( char ) * 100) );
     sub->address[0] = '\0';
     sub->otherFields = initializeList( &printField, &deleteField, &compareFields );
@@ -371,19 +435,57 @@ Submitter* createSubmitter( GEDCOMline** record, int count ) {
     }
     if (nameFound == false) {
         // free and return INV_RECORD
+        deleteSubmitter( sub );
+        return NULL;
     }
     return sub;
 }
 
+int compareReferencePairs( const void* first, const void* second ) {
+    if (first == NULL || second == NULL) {
+        return OTHER;
+    }
+
+    RefPair* pair1 = ((RefPair*)first);
+    RefPair* pair2 = ((RefPair*)second);
+
+    if (strcmp( pair1->extRefID, pair2->extRefID ) > 1) {
+        return 1;
+    } else if (strcmp( pair1->extRefID, pair2->extRefID ) < 1) {
+        return -1;
+    } else {
+        return 0;
+    }
+}
+
 char* convertDate( char* toConvert ) {
-    if (toConvert == NULL) return NULL;
+    if (toConvert == NULL) {
+        return NULL;
+    }
 
     char* copy = malloc( sizeof( char ) * (strlen( toConvert ) + 1) );
     strcpy( copy, toConvert );
     char* token = strtok( copy, " " );
+    if (!isdigit( token[0] )) {
+        token = strtok( NULL, " " );
+    } else {
+        if (strlen( token ) > 2) {
+            char* string = malloc( sizeof( char ) * (strlen( "unknown date" ) + 1) );
+            strcpy( string, "unknown date" );
+            free( copy );
+            return string;
+        }
+    }
     char* toReturn = malloc( sizeof( char ) * (strlen( token ) + 1) );
     strcpy( toReturn, token );
     token = strtok( NULL, " " );
+    if (token == NULL) {
+        char* string = malloc( sizeof( char ) * (strlen( "unknown date" ) + 1) );
+        strcpy( string, "unknown date" );
+        free( copy );
+        free( toReturn );
+        return string;
+    }
     for (int i = 0; i < strlen( token ); i++) {
         token[i] = toupper( token[i] );
     }
@@ -413,20 +515,26 @@ char* convertDate( char* toConvert ) {
         strcat( toReturn, "11" );
     } else if (strcmp( token, "DEC" ) == 0) {
         strcat( toReturn, "12" );
-    } else {
     }
 
     toReturn = realloc( toReturn, sizeof( char ) * (strlen( toReturn ) + 5) );
     token = strtok( NULL, "\n\r" );
+    if (token == NULL) {
+        char* string = malloc( sizeof( char ) * (strlen( "unknown date" ) + 1) );
+        strcpy( string, "unknown date" );
+        free( copy );
+        free( toReturn );
+        return string;
+    }
     strcat( toReturn, token );
-
     free( copy );
     return toReturn;
 }
 
 void deleteGEDCOMline( GEDCOMline* line ) {
-    if (line == NULL)
+    if (line == NULL) {
         return;
+    }
 
     free( line->tag );
     if (line->lineValue != NULL) {
@@ -439,17 +547,17 @@ void deleteGEDCOMline( GEDCOMline* line ) {
 }
 
 void deleteHeader( Header* head ) {
-    if (head == NULL)
+    if (head == NULL) {
         return;
-
+    }
     clearList( &(head->otherFields) );
     free( head );
 }
 
 void deleteSubmitter( Submitter* sub ) {
-    if (sub == NULL)
+    if (sub == NULL) {
         return;
-
+    }
     clearList( &(sub->otherFields) );
     free( sub );
 }
@@ -459,24 +567,40 @@ void dummyDelete( void* arg ) {
 }
 
 int familyMemberCount( const void* family ) {
-    if (family == NULL) return -1;
+    if (family == NULL){
+        return -1;
+    }
 
     Family fam = *((Family*)family);
-
     int members = 0;
-    if (fam.husband != NULL)
+    if (fam.husband != NULL) {
         members++;
-    if (fam.wife != NULL)
+    }
+    if (fam.wife != NULL) {
         members++;
+    }
     members += getLength( fam.children );
 
     return members;
 }
 
+Individual* findReference( char* input ) {
+    if (input == NULL) {
+        return NULL;
+    }
+
+    for (int i = 0; i < refCount; i++) {
+        if (strcmp( referenceArray[i]->extRefID, input ) == 0) {
+            return referenceArray[i]->indi;
+        }
+    }
+    return NULL;
+}
+
 CharSet getCharSetFromString( char* string ) {
     if (strcmp( string, "ANSEL") == 0) {
         return ANSEL;
-    } else if (strcmp( string, "UTF8") == 0) {
+    } else if (strcmp( string, "UTF-8") == 0) {
         return UTF8;
     } else if (strcmp( string, "UNICODE") == 0) {
         return UNICODE;
@@ -488,7 +612,7 @@ CharSet getCharSetFromString( char* string ) {
 }
 
 char* getStringFromCharSet( CharSet arg ) {
-    char* string = malloc( sizeof( char ) * 8 ); // 'UNICODE' is 7 chars long so alloc 1 extra
+    char* string = calloc( sizeof( char ), 8 ); // 'UNICODE' is 7 chars long so alloc 1 extra
     switch (arg) {
         case ANSEL:
             strcpy( string, "ANSEL" );
@@ -650,17 +774,18 @@ bool isFamEvent( char* tag ) {
 }
 
 bool modifyGEDCOMline( GEDCOMline* line, char* modValue ) {
-    if (line == NULL || modValue == NULL)
+    if (line == NULL || modValue == NULL) {
         return false;
-
+    }
     line->lineValue = realloc( line->lineValue, sizeof( char ) * (strlen( line->lineValue ) + strlen( modValue ) + 1) );
     strcat( line->lineValue, modValue );
     return true;
 }
 
 GEDCOMline* parseGEDCOMline( char* line ) {
-    if (line == NULL || strlen( line ) > 255)
+    if (line == NULL || strlen( line ) > 255) {
         return NULL;
+    }
 
     char* temp = strtok( line, " " );
     if (temp == NULL || strlen( temp ) > 2 || (strlen( temp ) == 2 && temp[0] == '0')) {
@@ -679,6 +804,10 @@ GEDCOMline* parseGEDCOMline( char* line ) {
         temp = strtok( NULL, " \n\r" );
     } else {
         toReturn->extRefID = NULL;
+    }
+    if (strlen( temp ) > 31) {
+        free( toReturn );
+        return NULL;
     }
     toReturn->tag = malloc( sizeof( char ) * (strlen( temp ) + 1) );
     strcpy( toReturn->tag, temp );
@@ -703,18 +832,18 @@ GEDCOMline* parseGEDCOMline( char* line ) {
 }
 
 char* printHeader( Header* head ) {
-    if (head == NULL)
+    if (head == NULL) {
         return NULL;
+    }
     char* string = NULL;
     char* temp;
-    string = malloc( sizeof( char ) * (strlen( head->source ) + 3) );
+    string = calloc( sizeof( char ), (strlen( head->source ) + 4) );
     strcpy( string, head->source );
     strcat( string, " " );
     string = realloc( string, sizeof( char ) * (strlen( string ) + 15) );
     temp = calloc( sizeof( char ), 11 );
     strcat( string, "GEDC: " );
     sprintf( temp, "%.2f", head->gedcVersion );
-    //temp[strlen( temp )] = '\0';
     strcat( string, temp );
     strcat( string, " " );
     free( temp );
@@ -728,11 +857,10 @@ char* printHeader( Header* head ) {
 }
 
 char* printGEDCOMline( GEDCOMline* line ) {
-    if (line == NULL)
+    if (line == NULL) {
         return NULL;
-
-    char* string = malloc( sizeof( char ) * 255 );
-    string[0] = '\0';
+    }
+    char* string = calloc( sizeof( char ), 255 );
     sprintf( string, "%d ", line->level );
     string[2] = '\0';
     if (line->extRefID != NULL) {
@@ -749,9 +877,9 @@ char* printGEDCOMline( GEDCOMline* line ) {
 }
 
 char* printSubmitter( Submitter* sub ) {
-    if (sub == NULL)
+    if (sub == NULL) {
         return NULL;
-
+    }
     char* string = NULL;
     string = malloc( sizeof( char ) * (strlen( sub->submitterName ) + 3) );
     strcpy( string, sub->submitterName );
@@ -798,172 +926,3 @@ char* robust_fgets( char* dest, int max, FILE* stream ) {
     }
     return str;
 }
-
-/********************** START OF HASH TABLE FUNCTIONS *************************/
-
-char* printHTableData( void* printMe ) {
-    if (printMe == NULL)
-        return NULL;
-
-    ReferencePointerPair* refPtr = (ReferencePointerPair*)printMe;
-    char* temp = malloc( sizeof( char ) * 23 );
-    sprintf( temp, "%p", &(refPtr->indi) );
-    char* string = malloc( sizeof( char ) * (strlen( refPtr->extRefID ) + 1) );
-    string = realloc( string, sizeof( char ) * (strlen( temp ) + 2) );
-    strcat( string, temp );
-    strcat( string, "\n" );
-    return string;
-}
-
-int compareHTableData( const void* first, const void* second ) {
-    if (first == NULL || second == NULL)
-        return OTHER;
-
-    ReferencePointerPair* refPtr1 = (ReferencePointerPair*)first;
-    ReferencePointerPair* refPtr2 = (ReferencePointerPair*)second;
-
-    int compVal;
-    if (refPtr1->extRefID == NULL && refPtr2->extRefID == NULL) {
-        compVal = 0;
-    } else if (refPtr1->extRefID == NULL && refPtr2->extRefID != NULL) {
-        compVal = -1;
-    } else if (refPtr1->extRefID != NULL && refPtr2->extRefID == NULL) {
-        compVal = 1;
-    } else {
-        compVal = strcmp( refPtr1->extRefID, refPtr2->extRefID );
-        if (compVal > 0)
-            compVal = 1;
-        else if (compVal < 0) {
-            compVal = -1;
-        }
-    }
-    return compVal;
-}
-
-void deleteHTableData( void* deleteMe ) {
-    ReferencePointerPair* refPtr = (ReferencePointerPair*)deleteMe;
-    free( refPtr->extRefID );
-    free( refPtr );
-}
-
-HTable *createTable( size_t size, int (*hashFunction)( size_t tableSize, char *toHash ),
-    void (*destroyData)( void *data ),char* (*printNode)( void *toBePrinted ), int compare( const void *first, const void *second ),
-    void (*addFunction)( HTable *hashTable, void *data ) ) {
-
-    if (hashFunction == NULL || destroyData == NULL || printNode == NULL || compare == NULL ) {
-        printf( "ERROR - Passed NULL as argument.\n" );
-        return NULL;
-    }
-    int i;
-    HTable *newHashTable = malloc( sizeof( HTable ) );
-
-    newHashTable->table = malloc( sizeof( List* ) * size );
-    for (i = 0; i < size; i++) {
-      *(newHashTable->table[i]) = initializeList( printNode, destroyData, compare );
-    }
-    newHashTable->destroyData = destroyData;
-    newHashTable->hashFunction = hashFunction;
-    newHashTable->printNode = printNode;
-    newHashTable->addData = addFunction;
-    newHashTable->size = size;
-
-    return newHashTable;
-}
-
-HNode *createHNode (int key, void *data ) {
-    HNode *newHNode = initializeHNode( data );
-    newHNode->key = key;
-
-    return newHNode;
-}
-
-void destroyTable( HTable *hashTable ) {
-    int i;
-
-    for (i = 0; i < hashTable->size; i++) {
-        clearList( hashTable->table[i] );
-    }
-    free( hashTable->table );
-    free( hashTable );
-    printf( "Hash Table destroyed\n" );
-    return;
-}
-
-HNode* initializeHNode( void* data ) {
-	HNode* tmpNode;
-
-	tmpNode = malloc( sizeof( HNode ) );
-
-	if (tmpNode == NULL){
-		return NULL;
-	}
-
-	tmpNode->data = data;
-	tmpNode->previous = NULL;
-	tmpNode->next = NULL;
-
-	return tmpNode;
-}
-
-void insertData( HTable *hashTable, int key, void *data ) {
-    HNode *newHNode = createHNode( key, data );
-    List *list = hashTable->table[key];
-    HNode *temp = (HNode*)(list->head);
-
-    while (temp != NULL) {
-        if (list->compare( temp->data, data ) == 0) {
-            printf( "That value already exists, duplicate entries are not allowed.\n" );
-            free( data );
-            return;
-        }
-        temp = temp->next;
-    }
-    insertSorted( hashTable->table[key], newHNode );
-    return;
-}
-
-void insertDataIntoMap( HTable *hashTable, void *data ) {
-    insertData( hashTable, hashTable->hashFunction( hashTable->size, data ), data );
-}
-
-void removeData( HTable *hashTable, int key, void *toRemove ) {
-    List *workingList = hashTable->table[key];
-    HNode *temp = (HNode*)workingList->head;
-
-    while (temp != NULL) {
-        if (workingList->compare( toRemove, temp->data ) == 1) {
-            temp = temp->next;
-        } else {
-            if (workingList->compare( toRemove, temp->data ) == 0) {
-                printf( "Removing data\n" );
-                deleteDataFromList( workingList, temp );
-                return;
-            } else {
-                printf( "That value does not exist.\n" );
-                return;
-            }
-        }
-    }
-    printf( "That value does not exist.\n" );
-    return;
-}
-
-void *lookupData( HTable *hashTable, int key, void *toFind ) {
-    List *workingList = hashTable->table[key];
-    HNode *temp = (HNode*)(workingList->head);
-
-    while (temp != NULL) {
-        if (workingList->compare( toFind, temp->data ) == 1) {
-            temp = temp->next;
-        } else {
-            if (workingList->compare( toFind, temp->data ) == 0) {
-                return temp->data;
-            } else {
-                return NULL;
-            }
-        }
-    }
-    return NULL;
-}
-
-/************************ END OF HASH TABLE FUNCTIONS *************************/
