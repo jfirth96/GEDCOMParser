@@ -1,8 +1,8 @@
 /**
  * @file GEDCOMutilities.h
  * @author Jackson Firth 0880887
- * @date January 2018
  * @version CIS2750 A1
+ * @date February 2nd 2018
  *
  * @brief This file contains the interface of the GEDCOMutilities module
  */
@@ -11,16 +11,17 @@
 #include <stdbool.h>
 #include "GEDCOMparser.h"
 
-
+/* Structure used to hold external reference IDs and the related Individual pointer */
 typedef struct refPair {
     char* extRefID;
     Individual* indi;
 } RefPair;
 
-/* Used to keep track of what @I00@ tag maps to which Individual */
+/* Data structure to hold record of (external reference, Individual) pair */
 RefPair** referenceArray;
 int refCount;
 
+/* Relation code to indicate how a person is related to a family. Used for adding to family */
 typedef enum relatCode { HUSB, WIFE, CHIL } RelationType;
 
 /* Used for indicating the record type to provide a generic utility to add fields to the list
@@ -28,6 +29,7 @@ typedef enum relatCode { HUSB, WIFE, CHIL } RelationType;
  */
 typedef enum recType { FAM, INDI, EVENT, HEAD, SUBM } RecordType;
 
+/* Structure to hold to contents of a GEDCOM line */
 typedef struct gedcom_line {
     int level;
     char* extRefID;
@@ -36,30 +38,22 @@ typedef struct gedcom_line {
     int lineNumber;
 } GEDCOMline;
 
-/* This structure is used internally to associate a GEDCOM reference string (i.e. @I001@)
- * with an appropriate Individual pointer
- */
-typedef struct extRefPointerPair {
-    Individual* indi;
-    char* extRefID;
-} ReferencePointerPair;
-
 /**
- * Function to add an event to an individual's structure
+ * Function to add an event to a family's or individual's list of events
  *
- * @param record
+ * @param record The record to add to
  * @param toAdd Pointer to the event to be added
- * @param type
+ * @param type The Type of record (i.e. FAM | INDI)
  * @return True on success, false on failure
  */
-bool addEventToIndividual( void* record, Event* toAdd, RecordType type );
+bool addEventToRecord( void* record, Event* toAdd, RecordType type );
 
 /**
  * Function to add a field to any of family, individual, or event structures.
  *
  * @param record Pointer to the record to be added to
  * @param toAdd Pointer to the field to be added
- * @param type Enuerated type to indicate whether the record being added to is a
+ * @param type Enumerated type to indicate whether the record being added to is a
  *        family, individual, or event
  * @return true on succes, false otherwise
  */
@@ -67,7 +61,7 @@ bool addFieldToRecord( void* record, Field* toAdd, RecordType type );
 
 /**
  * Adds the given individual to the given family under the given relationship.
- * NOTE: if an individual already exists in either of the husband or parent spots in the family,
+ * NOTE: if an individual already exists in either of the parent spots in the family,
  *       any new given value will overwrite the previous one
  *
  * @param fam The family to be added to
@@ -92,34 +86,30 @@ bool compareFunc( const void* first, const void* second );
 char* convertDate( char* toConvert );
 
 /**
- * Constructor for a GEDCOMerror. Assings the given values to the values in the structure
+ * Constructor for a GEDCOMerror. Assigns the given values to the members in the structure
  *
  * @param type String indicating the type of the error
+ * @param line The line number of the error
+ * @return GEDCOMerror with appropriate field values
  */
 GEDCOMerror createError( ErrorCode type, int line );
 
 /**
- * Function to allocate space for strings and initialize the list in an Event structure
+ * Constructor for an event.
  *
- * @pre type, date, and place must be null terminated strings
- * @post On success, an Event structure is returned with the proper space allocated for the
- *       given names. On failure, NULL is returned
- * @param record
- * @param count
+ * @param record Array of GEDCOMlines associated with the event
+ * @param count Number of items in record
  * @return Event structure with proper space allocated, or NULL
  */
 Event* createEvent( GEDCOMline** record, int count );
 
 /**
- * Constructor for a family. Assigns the pointers to the proper individuals and initializes
- * the lists.
+ * Constructor for a family. Parses values from an array of GEDCOMlines
  *
  * @post Family is created with husband and wife associated and lists initialized
- * @param husb Pointer to an individual. MAY BE NULL. This indicates no husband is part of the
- *        family.
- * @param wife Pointer to an individual. MAY BE NULL. This indicates no wife is part of the
- *        family.
- * @return Family with space allocated
+ * @param record Array of GEDCOMlines associated with the family
+ * @param count Number of items in record
+ * @return Family with space allocated, or NULL on failure
  */
 Family* createFamily( GEDCOMline** record, int count );
 
@@ -139,29 +129,38 @@ Field* createField( char* tag, char* value );
  * Constructor for a GEDCOMline object.
  * NOTE: reference and value may be NULL
  *
- * @param input
+ * @param input The line of text to parse
+ * @return GEDCOMline object with appropriate values, or NULL on failure
  */
 GEDCOMline* createGEDCOMline( char* input );
 
 /**
+ * Constructor for a Header. Parses values from an array of GEDCOMlines
  *
+ * @post Header is created with members assigned and lists initialized
+ * @param record Array of GEDCOMlines associated with the Header
+ * @param count Number of items in record
+ * @return Header with space allocated, or NULL on failure
  */
 Header* createHeader( GEDCOMline** record, int count );
 
 /**
- * Function to allocate space for strings and initialize lists in the Individual structure
+ * Constructor for an Individual. Parses values from an array of GEDCOMlines
  *
- * @pre givenName and surname must be null terminated strings
- * @post On success, an Individual structure is returned with the proper space allocated for
- *       the given names. On failure, NULL is returned
- * @param givenName The string to be stored as the given name for the individual
- * @param surname The string to be stored as the surname for the individual
- * @return An Individual structure with space allocated and lists initialized, or NULL
+ * @post Individual is created with pointers allocated and lists initialized
+ * @param record Array of GEDCOMlines associated with the Individual
+ * @param count Number of items in record
+ * @return Individual with space allocated, or NULL on failure
  */
 Individual* createIndividual( GEDCOMline** record, int count );
 
 /**
+ * Constructor for a Submitter. Parses values from an array of GEDCOMlines
  *
+ * @post Submitter is created with pointers allocated and lists initialized
+ * @param record Array of GEDCOMlines associated with the Submitter
+ * @param count Number of items in record
+ * @return Submitter with space allocated, or NULL on failure
  */
 Submitter* createSubmitter( GEDCOMline** record, int count );
 
@@ -173,14 +172,23 @@ Submitter* createSubmitter( GEDCOMline** record, int count );
 void deleteGEDCOMline( GEDCOMline* line );
 
 /**
+ * Destructor for a Header. Frees any strings inside
  *
+ * @param head The Header to be destroyed;
  */
 void deleteHeader( Header* head );
 
 /**
+ * Destructor for a Submitter. Frees any strings inside
  *
+ * @param sub The Submitter to be destroyed;
  */
 void deleteSubmitter( Submitter* sub );
+
+/**
+ * Used to implement strong and weak references
+ */
+void dummyDelete( void* arg );
 
 /**
  * Return a count of the number of members in the family
@@ -190,11 +198,22 @@ void deleteSubmitter( Submitter* sub );
  */
 int familyMemberCount( const void* family );
 
-
 /**
+ * Determines if a given tag is allowed to appear in a Header object
  *
+ * @param tag The tag being tested
+ * @return true if valid tag, false otherwise
  */
 bool isValidHeadTag( char* tag );
+
+/**
+ * Determines if a given Individual is a parent in a given family
+ *
+ * @param fam The family to be tested
+ * @param person The person to be tested
+ * @return true if they are a parent, false otherwise
+ */
+bool isParent( Family* fam, const Individual* person );
 
 /**
  * Mutator function to append more text to the value field of a GEDCOM line
@@ -206,19 +225,44 @@ bool isValidHeadTag( char* tag );
 bool modifyGEDCOMline( GEDCOMline* line, char* modValue );
 
 /**
+ * Allocates a string for human readable version of GEDCOMline
  *
- */
-char* printHeader( Header* head );
-
-/**
- *
+ * @param line THe line to be printed
+ * @return allocated string on success, NULL otherwise
  */
 char* printGEDCOMline( GEDCOMline* line );
 
 /**
+ * Allocates a string for human readable version of a Header
  *
+ * @param head The Header to be printed
+ * @return allocated string on success, NULL otherwise
+ */
+char* printHeader( Header* head );
+
+/* Given as the function to the list returned by getDescendants in order to clean up the
+ * output if the user decides to print the list contents
+ *
+ * @param toBePrinted The Individual to be printed
+ * @return allocated string on succes, NULL otherwise
+ */
+char* printIndividualNames( void* toBePrinted );
+
+/**
+ * Allocates a string for human readable version of a Submitter
+ *
+ * @param sub The Submitter to be printed
+ * @return allocated string on success, NULL otherwise
  */
 char* printSubmitter( Submitter* sub );
+
+/**
+ * Recursive version of getDescendants
+ *
+ * @param list The list of descendants being built
+ * @param person The current person being examined
+ */
+void recursiveGetDescendants( List* list, const Individual* person );
 
 /**
  * Robust version of fgets() that will handle any combination of \r or \n as a line
@@ -230,115 +274,5 @@ char* printSubmitter( Submitter* sub );
  * @return character pointer to new string on success, NULL on failure
  */
 char* robust_fgets( char* dest, int max, FILE* stream );
-
-
-/************************ START OF HASH TABLE FUNCTIONS ***********************/
-
-typedef struct hashNode{
-    void *data;
-    struct hashNode *previous;
-    struct hashNode *next;
-    int key; // used for hash table
-} HNode;
-
-/**
- * Hash table structure
- */
-typedef struct HTable {
-    size_t size; // number that represents the size of the hash table
-    List **table; // array that contains all of the table nodes
-    void (*destroyData)( void *data ); // function pointer to a function to delete a single piece of data from the hash table
-    int (*hashFunction)( size_t tableSize, char *toHash ); // function pointer to a function to hash the data
-    char* (*printNode)( void *toBePrinted ); // function pointer to a function that prints out a data element of the table
-    void (*addData)( struct HTable *hashTable, void *data );
-} HTable;
-
-/**
- * Function to point the hash table to the appropriate functions. Allocates memory to the struct and table based on the size given.
- *
- * @param size size of the hash table
- * @param hashFunction function pointer to a function to hash the data
- * @param destroyData function pointer to a function to delete a single piece of data from the hash table
- * @param printNode function pointer to a function that prints out a data element of the table
- * @return pointer to the hash table
- */
-HTable *createTable( size_t size, int (*hashFunction)( size_t tableSize, char *toHash ),
-    void (*destroyData)( void *data ), char* (*printNode)( void *toBePrinted ), int compare( const void *first, const void *second ),
-    void (*addFunction)( HTable *hashTable, void *data ) );
-
-/**
- * Function for creating a node for the hash table.
- *
- * @pre Node must be cast to void pointer before being added.
- * @post Node is valid and able to be added to the hash table
- * @param key Integer that represents the data (eg 35->"hello")
- * @param data Generic pointer to any data type.
- * @return Node for the hash table
- */
-HNode *createHNode (int key, void *data );
-
-/**
- * Deletes the entire hash table and frees memory of every element.
- *
- * @pre Hash Table must exist.
- * @param hashTable Pointer to hash table containing elements of data
- */
-void destroyTable( HTable *hashTable );
-
-/**
- * Function for creating a node for the hash table.
- * This node contains abstracted (void *) data as well as previous and next pointers to connect to other nodes in the list.
- *
- * @pre data should be of same size of void pointer on the users machine to avoid size conflicts. data must be valid.
- *   data must be cast to void pointer before being added.
- * @post data is valid to be added to a hash table
- * @return On success returns a hash node that can be added to a hash table. On failure, returns NULL.
- * @param data - is a void * pointer to any data type.  Data must be allocated on the heap.
- **/
-HNode* initializeHNode( void* data );
-
-/**
- * Inserts a Node in the hash table.
- *
- * @pre hashTable type must exist and have data allocated to it
- * @param hashTable Pointer to the hash table
- * @param key Integer that represents the data (eg 35->"hello")
- * @param data Pointer to generic data that is to be inserted into the list
- */
-void insertData( HTable *hashTable, int key, void *data );
-
-/**
- * Wrapper function to encapsulate the key generation process for inserting data
- *
- * @param hashTable The hash table to add to
- * @param data Pointer to the data to be inserted
- */
-void insertDataIntoMap( HTable *hashTable, void *data );
-
-/**
- * Function to return the data from the key given.
- *
- * @pre The hash table exists and has memory allocated to it
- * @param hashTable Pointer to the hash table containing data nodes
- * @param key Integer that represents a piece of data in the table (eg 35->"hello")
- * @param toFind Pointer to the data to be removed. Used for finding proper value when collisions
- *        occur
- * @return Pointer to the data in the hash table. Returns NULL if no match is found.
- */
-void *lookupData( HTable *hashTable, int key, void *toFind );
-
-/**
- * Function to remove a node from the hash table
- *
- * @pre Hash table must exist and have memory allocated to it
- * @post Node at key will be removed from the hash table if it exists.
- * @param hashTable Pointer to the hash table struct
- * @param key Integer that represents a piece of data in the table (eg 35->"hello")
- * @param toRemove Pointer to the data to be removed. Used for finding proper value when collisions
- *        occur
- */
-void removeData( HTable *hashTable, int key, void *toRemove );
-
-/************************** END OF HASH TABLE FUNCTIONS ***********************/
 
 #endif

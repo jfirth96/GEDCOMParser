@@ -1,29 +1,27 @@
 CC = gcc
-CFLAGS = -Wall -std=c11 -g -Iinclude -c
+CFLAGS = -Wall -std=c11 -g -Iinclude
+LDFLAGS = -llist -lparser
 
-SRC = src/
-BIN = bin/
+SRC = ./src/
+BIN = ./bin/
+LIB = -L./bin
 
-EXEC = $(BIN)program
-TEST = $(BIN)testMain
+all: list parser
 
-test : GEDCOM.o test.o LinkedList.o GEDCOMutil
-	$(CC) $(BIN)testMain.o $(BIN)GEDCOMutil.o $(BIN)GEDCOMparser.o $(BIN)LinkedListAPI.o -o $(TEST)
+list: LinkedList.o
+	ar cr $(BIN)liblist.a $(BIN)LinkedListAPI.o
+
+parser: GEDCOM.o GEDCOMutil LinkedList.o
+	ar cr $(BIN)libparser.a $(BIN)LinkedListAPI.o $(BIN)GEDCOMutil.o $(BIN)GEDCOMparser.o
 
 GEDCOM.o :
-	$(CC) $(CFLAGS) $(SRC)GEDCOMparser.c -o $(BIN)GEDCOMparser.o
+	$(CC) $(CFLAGS) -c $(SRC)GEDCOMparser.c -o $(BIN)GEDCOMparser.o
 
 GEDCOMutil :
-	$(CC) $(CFLAGS) $(SRC)GEDCOMutilities.c -o $(BIN)GEDCOMutil.o
+	$(CC) $(CFLAGS) -c $(SRC)GEDCOMutilities.c -o $(BIN)GEDCOMutil.o
 
 LinkedList.o :
-	$(CC) $(CFLAGS) $(SRC)LinkedListAPI.c -o $(BIN)LinkedListAPI.o
-
-test.o :
-	$(CC) $(CFLAGS) $(SRC)testMain.c -o $(BIN)testMain.o
+	$(CC) $(CFLAGS) -c $(SRC)LinkedListAPI.c -o $(BIN)LinkedListAPI.o
 
 clean :
 	rm $(BIN)*
-
-debug:
-	valgrind --leak-check=full --show-leak-kinds=all --track-origins=yes ./bin/testMain input/shakespeare.ged

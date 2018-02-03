@@ -1,27 +1,20 @@
+/**
+ * @file GEDCOMparser.c
+ * @author Jackson Firth 0880887
+ * @version CIS2750 A1
+ * @date February 2nd 2018
+ *
+ * @brief This file contains the implementation of the GEDCOMparser module
+ */
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
 #include <stdbool.h>
 #include <ctype.h>
-#include "LinkedListAPI.h"
 #include "GEDCOMparser.h"
 #include "GEDCOMutilities.h"
-//***************************************** GEDCOOM object functions *****************************************
+#include "LinkedListAPI.h"
 
-/**
- * Function to create a GEDCOM object based on the contents of an GEDCOM file.
- *
- * @pre File name cannot be an empty string or NULL.  File name must have the .ged extension.
-     File represented by this name must exist and must be readable.
- * @post Either:
- *   A valid GEDCOM has been created, its address was stored in the variable obj, and OK was returned
- *     or
- *   An error occurred, the GEDCOM was not created, all temporary memory was freed, obj was set to NULL, and the
- *   appropriate error code was returned
- * @return the error code indicating success or the error encountered when parsing the GEDCOM
- * @param fileName - a string containing the name of the GEDCOM file
- * @param a double pointer to a GEDCOMobject struct that needs to be allocated
- **/
 GEDCOMerror createGEDCOM( char* fileName, GEDCOMobject** obj ) {
     /* Intialize the global reference array */
     refCount = 0;
@@ -75,6 +68,9 @@ GEDCOMerror createGEDCOM( char* fileName, GEDCOMobject** obj ) {
     bool hasHead, hasSubmit, hasTrailer, hasRecord;
     hasHead = hasSubmit = hasTrailer = hasRecord = false;
     p = robust_fgets( temp, 254, file );
+    while( temp[0] == '\n' ) {
+        p = robust_fgets( temp, 254, file );
+    }
     while (1) {
         count = 0;
         record = realloc( record, sizeof( GEDCOMline* ) * (count + 1) );
@@ -187,6 +183,9 @@ GEDCOMerror createGEDCOM( char* fileName, GEDCOMobject** obj ) {
             count++;
             lineNumber++;
             p = robust_fgets( temp, 254, file);
+            while( p != NULL && temp[0] == '\n' ) {
+                p = robust_fgets( temp, 254, file );
+            }
         } while (1);
 
 
@@ -198,6 +197,16 @@ GEDCOMerror createGEDCOM( char* fileName, GEDCOMobject** obj ) {
                 for (int i = 0; i < count; i++) {
                     deleteGEDCOMline( record[i] );
                 }
+                for (int i = 0; i < refCount; i++) {
+                    free( referenceArray[i]->extRefID );
+                    free( referenceArray[i] );
+                }
+                free( referenceArray );
+                free( record );
+                fclose( file );
+                free( *obj );
+                *obj = NULL;
+                obj = NULL;
                 return err;
             } else {
                 hasHead = true;
@@ -272,7 +281,28 @@ GEDCOMerror createGEDCOM( char* fileName, GEDCOMobject** obj ) {
         } else if (strcmp( record[0]->tag, "FAM" ) == 0) {
             // create family, pass array of lines and parse in the function
             Family* fam = createFamily( record, count );
-            insertSorted( &((*obj)->families), (void*)fam );
+            if (fam == NULL) {
+                // free everything
+                GEDCOMerror err = createError( INV_RECORD, record[count - 1]->lineNumber );
+                for (int i = 0; i < count; i++) {
+                    deleteGEDCOMline( record[i] );
+                }
+                for (int i = 0; i < refCount; i++) {
+                    free( referenceArray[i]->extRefID );
+                    free( referenceArray[i] );
+                }
+                free( referenceArray );
+                deleteGEDCOM( *obj );
+                free( record );
+                fclose( file );
+                free( *obj );
+                *obj = NULL;
+                free( obj );
+                obj = NULL;
+                return err;
+            } else {
+                insertSorted( &((*obj)->families), (void*)fam );
+            }
         }
         for (int i = 0; i < count; i++) {
             deleteGEDCOMline( record[i] );
@@ -293,14 +323,6 @@ GEDCOMerror createGEDCOM( char* fileName, GEDCOMobject** obj ) {
     }
 }
 
-/**
- * Function to create a string representation of a GEDCOMobject.
- *
- * @pre GEDCOMobject object exists, is not null, and is valid
- * @post GEDCOMobject has not been modified in any way, and a string representing the GEDCOM contents has been created
- * @return a string contaning a humanly readable representation of a GEDCOMobject
- * @param obj - a pointer to a GEDCOMobject struct
- **/
 char* printGEDCOM( const GEDCOMobject* obj ) {
     char* buffer = NULL;
     char* temp = NULL;
@@ -352,14 +374,6 @@ char* printGEDCOM( const GEDCOMobject* obj ) {
     return buffer;
 }
 
-/**
- * Function to delete all GEDCOM object content and free all the memory.
- *
- * @pre GEDCOM object exists, is not null, and has not been freed
- * @post GEDCOM object had been freed
- * @return none
- * @param obj - a pointer to a GEDCOMobject struct
- **/
 void deleteGEDCOM( GEDCOMobject* obj ) {
     if (obj->header != NULL) {
         deleteHeader( obj->header );
@@ -376,13 +390,6 @@ void deleteGEDCOM( GEDCOMobject* obj ) {
     free( obj );
 }
 
-
-/**
- * Function to "convert" the GEDCOMerror into a humanly readable string.
- *
- * @return a string contaning a humanly readable representation of the error code
- * @param err - an error struct
- **/
 char* printError( GEDCOMerror err ) {
     char* string = NULL;
     switch (err.type) {
@@ -415,28 +422,12 @@ char* printError( GEDCOMerror err ) {
     }
     char num[15];
     sprintf( num, "(line %d)", err.line );
-    string = realloc( string, sizeof( char ) * (strlen( string ) + strlen( num ) + 2) );
+    string = realloc( string, sizeof( char ) * (strlen( string ) + strlen( num ) + 3) );
     strcat( string, num );
     strcat( string, "\n" );
     return string;
 }
 
-
-/**
- * Function that searches for an individual in the list using a comparator function.
- * If an individual is found, a pointer to the Individual record
- * Returns NULL if the individual is not found.
- *
- * @pre GEDCOM object exists,is not NULL, and is valid.  Comparator function has been provided.
- * @post GEDCOM object remains unchanged.
- * @return The Individual record associated with the person that matches the search criteria.  If the Individual record is not found, return NULL.
- *   If multiple records match the search criteria, return the first one.
- * @param familyRecord - a pointer to a GEDCOMobject struct
- * @param compare - a pointer to comparator fuction for customizing the search
- * @param person - a pointer to search data, which contains seach criteria
- * Note: while the arguments of compare() and person are all void, it is assumed that records they point to are
- *   all of the same type - just like arguments to the compare() function in the List struct
- **/
 Individual* findPerson( const GEDCOMobject* familyRecord, bool (*compare)( const void* first, const void* second ), const void* person ) {
     if (person == NULL) {
         return NULL;
@@ -454,22 +445,29 @@ Individual* findPerson( const GEDCOMobject* familyRecord, bool (*compare)( const
     return NULL;
 }
 
+List getDescendants( const GEDCOMobject* familyRecord, const Individual* person ) {
+    List toReturn = initializeList( &printIndividualNames, &dummyDelete, &compareIndividuals );
 
-/**
- * Function to return a list of all descendants of an individual in a GEDCOM
- *
- * @pre GEDCOM object exists, is not null, and is valid
- * @post GEDCOM object has not been modified in any way, and a list of descendants has been created
- * @return a list of descendants.  The list may be empty.  All list members must be of type Individual, and can appear in any order.
- * All list members must be COPIES of the Individual records in the GEDCOM file.  If the returned list is freed, the original GEDCOM
- * must remain unaffected.
- * @param familyRecord - a pointer to a GEDCOMobject struct
- * @param person - the Individual record whose descendants we want
- **/
-List getDescendants( const GEDCOMobject* familyRecord, const Individual* person );
+    if (familyRecord == NULL || person == NULL) {
+        return toReturn;
+    }
 
+    ListIterator famIter = createIterator( person->families );
+    void* famElem;
+    while ((famElem = nextElement( &famIter )) != NULL) {
+        Family* currFam = (Family*)famElem;
+        if (isParent( currFam, person )) {
+            ListIterator indivIter = createIterator( currFam->children );
+            void* indivElem;
+            while ((indivElem = nextElement( &indivIter )) != NULL) {
+                insertSorted( &toReturn, indivElem );
+            }
+        }
+    }
+    //recursiveGetDescendants( &toReturn, person );
+    return toReturn;
+}
 
-//************************************************************************************************************
 
 //****************************************** List helper functions *******************************************
 void deleteEvent(void* toBeDeleted) {
@@ -811,4 +809,4 @@ char* printField(void* toBePrinted) {
     strcat( stringOne, temp.value );
     return stringOne;
 }
-//************************************************************************************************************
+//****************************************** End of helpers ************************************************

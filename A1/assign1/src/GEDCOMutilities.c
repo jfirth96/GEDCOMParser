@@ -2,7 +2,7 @@
  * @file GEDCOMutilities.c
  * @author Jackson Firth 0880887
  * @version CIS2750 A1
- * @date January 2018
+ * @date February 2nd 2018
  *
  * @brief This file contains the implementation of the GEDCOMutilities module
  */
@@ -10,45 +10,61 @@
 #include <string.h>
 #include <stdlib.h>
 #include <ctype.h>
-#include "GEDCOMutilities.h"
 #include "GEDCOMparser.h"
+#include "GEDCOMutilities.h"
+#include "LinkedListAPI.h"
 
 /************************** Internal Functions ********************************/
 
 /**
+ * Comparison function for reference pairs
  *
+ * @param first The first pair structure
+ * @param second The second pair structure
+ * @return 1 if first > second, -1 first < second, 0 if they are equal
  */
 int compareReferencePairs( const void* first, const void* second );
 
 /**
- * Used to implement strong and weak references
- */
-void dummyDelete( void* arg );
-
-/**
+ * Find an individual in the reference structure given a GEDCOM external reference string in
+ * the format "@I00x@"
  *
+ * @param input The external reference string to find
+ * @return The individual pointer that corresponds to the given reference or NULL on failure
  */
 Individual* findReference( char* input );
 
 /**
- *
+ * Returns a CharSet variable from the given string to use for assignment in the Header
+ * @param string The string representation of a CharSet value
+ * @return CharSet value able to be assigned
  */
 CharSet getCharSetFromString( char* string );
 
 /**
+ * Converts a CharSet value into a string to be used for printing
  *
+ * @param arg The CharSet to convert
+ * @return string representation of the CharSet value, or NULL on failure
  */
 char* getStringFromCharSet( CharSet arg );
 
 /**
+ * Determines if a given tag is a family event tag
  *
+ * @param tag The tag to test
+ * @return true if the tag is a family event, false otherwise
  */
 bool isFamEvent( char* tag );
 
 /**
+ * Determines if a given tag is an individual event tag
  *
+ * @param tag The tag to test
+ * @return true if the tag is an individual event, false otherwise
  */
 bool isIndividualEvent( char* tag );
+
 
 /**
  * Function to parse a GEDCOMline from a given string
@@ -58,6 +74,7 @@ bool isIndividualEvent( char* tag );
  */
 GEDCOMline* parseGEDCOMline( char* line );
 
+
 /**
  * Removes the newline character from the given string
  *
@@ -65,31 +82,6 @@ GEDCOMline* parseGEDCOMline( char* line );
  */
 void removeHardReturn( char *line );
 
-bool compareFunc( const void* first, const void* second ) {
-    if (first == NULL || second == NULL) {
-        return false;
-    }
-    Individual* one = (Individual*)first;
-    Individual* two = (Individual*)second;
-
-    if (one->givenName != NULL && two->givenName != NULL) {
-        if (strcmp( one->givenName, two->givenName ) == 0) {
-            if (one->surname != NULL && two->surname != NULL) {
-                if (strcmp( one->surname, two->surname ) == 0) {
-                    return true;
-                } else {
-                    return false;
-                }
-            } else {
-                return false;
-            }
-        } else {
-            return false;
-        }
-    } else {
-        return false;
-    }
-}
 
 /************************ End of Internal Functions ***************************/
 
@@ -173,6 +165,32 @@ bool addToFamily( Family* fam, Individual* indi, RelationType relation ) {
     return true;
 }
 
+bool compareFunc( const void* first, const void* second ) {
+    if (first == NULL || second == NULL) {
+        return false;
+    }
+    Individual* one = (Individual*)first;
+    Individual* two = (Individual*)second;
+
+    if (one->givenName != NULL && two->givenName != NULL) {
+        if (strcmp( one->givenName, two->givenName ) == 0) {
+            if (one->surname != NULL && two->surname != NULL) {
+                if (strcmp( one->surname, two->surname ) == 0) {
+                    return true;
+                } else {
+                    return false;
+                }
+            } else {
+                return false;
+            }
+        } else {
+            return false;
+        }
+    } else {
+        return false;
+    }
+}
+
 GEDCOMerror createError( ErrorCode type, int line ) {
     GEDCOMerror err;
     err.type = type;
@@ -186,6 +204,10 @@ Event* createEvent( GEDCOMline** record, int count ) {
     event->place = NULL;
     event->otherFields = initializeList( &printField, &deleteField, &compareFields );
 
+    if (strlen( record[0]->tag ) > 4) {
+        clearList( &(event->otherFields) );
+        free( event );
+    }
     strncpy( event->type, record[0]->tag, 4 );
     event->type[4] = '\0';
 
@@ -236,6 +258,14 @@ Family* createFamily( GEDCOMline** record, int count ) {
                 subarray[k] = record[j + k];
             }
             Event* temp = createEvent( subarray, subCount );
+            if (temp == NULL) {
+                free( subarray );
+                free( fam );
+                clearList( &(fam->events) );
+                clearList( &(fam->children) );
+                clearList( &(fam->otherFields) );
+                return NULL;
+            }
             addEventToRecord( (void*)fam, temp, FAM );
             free( subarray );
         } else {
@@ -340,13 +370,14 @@ Header* createHeader( GEDCOMline** record, int count ) {
             return NULL;
         }
     }
-    if (sourceFound == false || GEDCfound == false || submitFound == false || charSetFound == false) {
+    if (sourceFound && GEDCfound && submitFound && charSetFound) {
+        return head;
+    } else {
         // free everything and return NULL
         clearList( &(head->otherFields) );
         free( head );
         return NULL;
     }
-    return head;
 }
 
 Individual* createIndividual( GEDCOMline** record, int count ) {
@@ -383,6 +414,13 @@ Individual* createIndividual( GEDCOMline** record, int count ) {
                 subarray[k] = record[j + k];
             }
             Event* temp = createEvent( subarray, subCount );
+            if (temp == NULL) {
+                free( subarray );
+                clearList( &(indi->events) );
+                clearList( &(indi->otherFields) );
+                free( indi );
+                return NULL;
+            }
             addEventToRecord( (void*)indi, temp, INDI );
             free( subarray );
         } else {
@@ -773,6 +811,23 @@ bool isFamEvent( char* tag ) {
     }
 }
 
+bool isParent( Family* fam, const Individual* person ) {
+    if (fam == NULL || person == NULL) {
+        return false;
+    }
+    if (fam->husband != NULL) {
+        if (compareIndividuals( fam->husband, person ) == 0) {
+            return true;
+        }
+    }
+    if (fam->wife != NULL) {
+        if (compareIndividuals( fam->wife, person ) == 0) {
+            return true;
+        }
+    }
+    return false;
+}
+
 bool modifyGEDCOMline( GEDCOMline* line, char* modValue ) {
     if (line == NULL || modValue == NULL) {
         return false;
@@ -831,6 +886,26 @@ GEDCOMline* parseGEDCOMline( char* line ) {
     return toReturn;
 }
 
+char* printGEDCOMline( GEDCOMline* line ) {
+    if (line == NULL) {
+        return NULL;
+    }
+    char* string = calloc( sizeof( char ), 255 );
+    sprintf( string, "%d ", line->level );
+    string[2] = '\0';
+    if (line->extRefID != NULL) {
+        strcat( string, line->extRefID );
+        strcat( string, " " );
+    }
+    strcat( string, line->tag );
+    strcat( string, " " );
+    if (line->lineValue != NULL) {
+        strcat( string, line->lineValue );
+    }
+    removeHardReturn( string );
+    return string;
+}
+
 char* printHeader( Header* head ) {
     if (head == NULL) {
         return NULL;
@@ -856,23 +931,23 @@ char* printHeader( Header* head ) {
     return string;
 }
 
-char* printGEDCOMline( GEDCOMline* line ) {
-    if (line == NULL) {
+char* printIndividualNames( void* toBePrinted ) {
+    if (toBePrinted == NULL) {
         return NULL;
     }
-    char* string = calloc( sizeof( char ), 255 );
-    sprintf( string, "%d ", line->level );
-    string[2] = '\0';
-    if (line->extRefID != NULL) {
-        strcat( string, line->extRefID );
+
+    Individual indi = *((Individual*)toBePrinted);
+    char* string = calloc( sizeof( char ), 1 );
+    if (indi.givenName != NULL) {
+        string = realloc( string, sizeof( char ) * (strlen( indi.givenName ) + 2) );
+        strcpy( string, indi.givenName );
         strcat( string, " " );
     }
-    strcat( string, line->tag );
-    strcat( string, " " );
-    if (line->lineValue != NULL) {
-        strcat( string, line->lineValue );
+    if (indi.surname != NULL) {
+        string = realloc( string, sizeof( char ) * (strlen( string ) + strlen( indi.surname ) + 3) );
+        strcat( string, indi.surname );
+        strcat( string, "\n" );
     }
-    removeHardReturn( string );
     return string;
 }
 
@@ -893,6 +968,22 @@ char* printSubmitter( Submitter* sub ) {
 
 void removeHardReturn( char *line ) {
     line = strtok( line, "\r\n" );
+}
+
+void recursiveGetDescendants( List* list, const Individual* person ) {
+    ListIterator famIter = createIterator( person->families );
+    void* famElem;
+    while ((famElem = nextElement( &famIter )) != NULL) {
+        Family* currFam = ((Family*)famElem);
+        if (isParent( currFam, person )) {
+            ListIterator indivIter = createIterator( currFam->children );
+            void* indivElem;
+            while ((indivElem = nextElement( &indivIter )) != NULL) {
+                insertSorted( list, indivElem );
+                recursiveGetDescendants( list, (const Individual*)indivElem );
+            }
+        }
+    }
 }
 
 char* robust_fgets( char* dest, int max, FILE* stream ) {
