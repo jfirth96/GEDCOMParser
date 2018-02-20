@@ -38,6 +38,7 @@ int main( int argc, char** argv ) {
         free( test );
     }
 
+
     if (obj != NULL) {
         print2 = printGEDCOM( obj );
         printf( "%s", print2 );
