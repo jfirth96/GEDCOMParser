@@ -194,9 +194,6 @@ GEDCOMerror createGEDCOM( char* fileName, GEDCOMobject** obj ) {
                 goto CLEANUP;
             } else {
                 if (record[0]->extRefID != NULL) {
-                    char* s = printIndividual( indi );
-                    printf( "%s->%s\n", record[0]->extRefID, s );
-                    free( s );
                     referenceArray = realloc( referenceArray, sizeof( RefPair* ) * (refCount + 1) );
                     referenceArray[refCount] = calloc( sizeof( RefPair ), 1 );
                     referenceArray[refCount]->extRefID = malloc( sizeof( char ) * (strlen( record[0]->extRefID ) + 1) );
@@ -478,17 +475,17 @@ List getDescendantListN(const GEDCOMobject* familyRecord, const Individual* pers
     List getChildrenOf = initializeList( &printGenerationList, &dummyDelete, &mySurnameCompare );
 
     // Put given individual as first person in list
-    insertSorted( &getChildrenOf, (void*)person );
+    insertBack( &getChildrenOf, (void*)person );
 
     // foreach generation ...
     for (int i = 0; i < maxGen; i++) {
-        List generation = initializeList( &printGenerationList, &dummyDelete, &mySurnameCompare );
+        List generation = initializeList( &printIndividualNames, &dummyDelete, &mySurnameCompare );
         // foreach person in getChildrenOf list
         ListIterator iter = createIterator( getChildrenOf );
         void* elem;
         while ((elem = nextElement( &iter )) != NULL) {
             List tmp  = getChildren( (Individual*)elem );
-            combineLists( &generation, &tmp, 1 );
+            combineLists( &generation, &(tmp), 1 );
         }
         clearList( &getChildrenOf );
         if (getLength( generation ) == 0) {
@@ -497,13 +494,12 @@ List getDescendantListN(const GEDCOMobject* familyRecord, const Individual* pers
         // put generation list into descendants list (required list pointer)
         List* ptr = calloc( sizeof( List ), 1 );
         ptr->deleteData = &dummyDelete;
-    	ptr->compare = &mySurnameCompare;
+    	ptr->compare = &compareIndividuals;
     	ptr->printData = &printGenerationList;
         combineLists( ptr, &generation, 0 );
         insertBack( &descendants, (void*)(ptr) );
         // put current generation of individuals into getChildrenOf list
-        combineLists( &getChildrenOf, &generation, 0 );
-        clearList( &generation );
+        combineLists( &getChildrenOf, &generation, 1 );
     }
     if (getLength( getChildrenOf ) != 0) {
         clearList( &getChildrenOf );
@@ -516,27 +512,29 @@ List getDescendantListN(const GEDCOMobject* familyRecord, const Individual* pers
         insertBack( &getChildrenOf, (void*)person );
         do { // do while generation is not empty
             List generation = initializeList( &printGenerationList, &dummyDelete, &mySurnameCompare );
-            // foreach person in getChildrenOf list
             ListIterator iter = createIterator( getChildrenOf );
             void* elem;
             while ((elem = nextElement( &iter )) != NULL) {
-                List tmp  = getChildren( (Individual*)elem );
-                combineLists( &generation, &tmp, 1 );
+                List tmp = getChildren( (Individual*)elem );
+                combineLists( &generation, &(tmp), 1 );
             }
             clearList( &getChildrenOf );
             if (getLength( generation ) == 0) {
                 break;
             }
-            // put generation list into descendants list (required list pointer)
+
             List* ptr = calloc( sizeof( List ), 1 );
+            ptr->head = NULL;
+            ptr->tail = NULL;
+            ptr->length = 0;
             ptr->deleteData = &dummyDelete;
-        	ptr->compare = &mySurnameCompare;
-        	ptr->printData = &printGenerationList;
+            ptr->compare = &compareIndividuals;
+            ptr->printData = &printGenerationList;
             combineLists( ptr, &generation, 0 );
             insertBack( &descendants, (void*)(ptr) );
             // put current generation of individuals into getChildrenOf list
-            combineLists( &getChildrenOf, &generation, 0 );
-            clearList( &generation );
+            combineLists( &getChildrenOf, &generation, 1 );
+            //clearList( &generation );
         } while (1);
         clearList( &getChildrenOf );
     }
@@ -560,7 +558,6 @@ ErrorCode validateGEDCOM( const GEDCOMobject* obj ) {
     if (sub->submitterName != NULL && strlen( sub->submitterName ) > 0) {
         // do nothing all is good
     } else {
-        printf( "inv_sub\n" );
         return INV_RECORD;
     }
     /* TODO
@@ -585,10 +582,9 @@ ErrorCode validateGEDCOM( const GEDCOMobject* obj ) {
             while ((famElem = nextElement( &famIter )) != NULL) {
                 index1++;
                 Family* fam = (Family*)famElem;
-                /*if (fam->husband == NULL || fam->wife == NULL) {
-                    printf( "husb or wife NULL\n" );
+                if (fam->husband == NULL || fam->wife == NULL) {
                     return INV_RECORD;
-                }*/
+                }
                 // foreach child in fam->children
                 ListIterator childIter = createIterator( fam->children );
                 void* childElem;
@@ -598,7 +594,6 @@ ErrorCode validateGEDCOM( const GEDCOMobject* obj ) {
                 }
                 if (index2 < getLength( fam->children ) - 1) {
                     // NULL pointer encountered before end of list
-                    printf( "NULL ptr in fam->children\n" );
                     return INV_RECORD;
                 }
             }
@@ -614,7 +609,7 @@ ErrorCode validateGEDCOM( const GEDCOMobject* obj ) {
     }
 
     // INV_RECORD - NULL pointer in family list
-    if (getLength( obj->families ) > 0) {
+    if (getLength( obj->families ) != 0) {
         // foreach fam in obj->fams
         ListIterator iter = createIterator( obj->families );
         void* elem;
@@ -622,9 +617,9 @@ ErrorCode validateGEDCOM( const GEDCOMobject* obj ) {
         while ((elem = nextElement( &iter )) != NULL) {
             famIndex++;
             Family* fam = (Family*)elem;
-            /*if (fam->husband == NULL || fam->wife == NULL) {
+            if (fam->husband == NULL || fam->wife == NULL) {
                 return INV_RECORD;
-            }*/
+            }
             if (getLength( fam->children ) != 0) {
                 ListIterator indivIter = createIterator( fam->children );
                 void* elem;
@@ -638,7 +633,7 @@ ErrorCode validateGEDCOM( const GEDCOMobject* obj ) {
                 }
             }
         }
-        if (famIndex < getLength( obj->families ) - 1) {
+        if (famIndex <= getLength( obj->families ) - 1) {
             // NULL pointer encountered before end of list
             return INV_RECORD;
         }
@@ -870,57 +865,11 @@ GEDCOMobject* JSONtoGEDCOM(const char* str) {
     return obj;
 }
 
-void addIndividual(GEDCOMobject* obj, const Individual* toBeAdded) {
-    if (obj == NULL || toBeAdded == NULL) {
-        return;
-    }
+void addIndividual(GEDCOMobject* obj, const Individual* toBeAdded);
 
-    insertSorted( &obj->individuals, (void*)toBeAdded );
-}
+char* iListToJSON(List iList);
 
-char* iListToJSON(List iList) {
-    char* string = calloc( sizeof( char ), 3 );
-
-    if (getLength( iList ) == 0) {
-        strcpy( string, "[]" );
-        return string;
-    }
-    string[0] = '[';
-    ListIterator iter = createIterator( iList );
-    void* elem;
-    while ((elem = nextElement( &iter )) != NULL) {
-        Individual* indiv = (Individual*)elem;
-        char* temp = indToJSON( indiv );
-        string = realloc( string, sizeof( char ) * (strlen( string ) + strlen( temp ) + 3) );
-        strcat( string, temp );
-        strcat( string, "," );
-        free( temp );
-    }
-    string[strlen( string ) - 1] = ']'; // replaces the comma after last value with ']'
-    return string;
-}
-
-char* gListToJSON(List gList) {
-    char* string = calloc( sizeof( char ), 3 );
-
-    if (getLength( gList ) == 0) {
-        strcpy( string, "[]" );
-        return string;
-    }
-    string[0] = '[';
-    ListIterator iter = createIterator( gList );
-    void* elem;
-    while ((elem = nextElement( &iter )) != NULL) {
-        List list = *((List*)elem);
-        char* temp = iListToJSON( list );
-        string = realloc( string, sizeof( char ) * (strlen( string ) + strlen( temp ) + 4) );
-        strcat( string, temp );
-        strcat( string, "," );
-        free( temp );
-    }
-    string[strlen( string ) - 1] = ']'; // replaces comma afer last value with ']'
-    return string;
-}
+char* gListToJSON(List gList);
 
 
 //****************************************** List helper functions *******************************************
@@ -1076,47 +1025,7 @@ int compareIndividuals(const void* first,const void* second) {
     } else if (compareVal < 0) {
         return -1;
     } else {
-        // compare birth dates
-        char* birth1 = NULL;
-        char* birth2 = NULL;
-        if (getLength( indiv1.events ) > 0 ) {
-            ListIterator iter = createIterator( indiv1.events );
-            void* elem;
-            while ((elem = nextElement( &iter )) != NULL) {
-                Event* event = (Event*)elem;
-                if (strcmp( event->type, "BIRT" ) == 0) {
-                    birth1 = event->date;
-                    break;
-                }
-            }
-        }
-        if (getLength( indiv2.events ) > 0 ) {
-            ListIterator iter = createIterator( indiv2.events );
-            void* elem;
-            while ((elem = nextElement( &iter )) != NULL) {
-                Event* event = (Event*)elem;
-                if (strcmp( event->type, "BIRT" ) == 0) {
-                    birth2 = event->date;
-                    break;
-                }
-            }
-        }
-        if (birth1 != NULL && birth2 == NULL) {
-            return 1;
-        } else if (birth1 == NULL && birth2 != NULL) {
-            return -1;
-        } else if (birth1 != NULL && birth2 != NULL) {
-            int compVal = strcmp( birth1, birth2 );
-            if (compVal > 0) {
-                return 1;
-            } else if (compVal < 0) {
-                return -1;
-            } else {
-                return 0;
-            }
-        } else {
-            return 0;
-        }
+        return 0;
     }
 }
 char* printIndividual( void* toBePrinted ) {
@@ -1151,11 +1060,9 @@ char* printIndividual( void* toBePrinted ) {
         void* elem;
         while ((elem = nextElement( &iter )) != NULL) {
             char* temp = printField( elem );
-            if (temp) {
-                string = realloc( string, sizeof( char ) * (strlen( string ) + strlen( temp ) + 3) );
-                strcat( string, temp );
-                free( temp );
-            }
+            string = realloc( string, sizeof( char ) * (strlen( string ) + strlen( temp ) + 3) );
+            strcat( string, temp );
+            free( temp );
         }
     }
     return string;

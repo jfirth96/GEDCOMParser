@@ -249,13 +249,13 @@ void insertSorted( List *list, void *toBeAdded ) {
 	while (currNode != NULL) {
 		if (list->compare( toBeAdded, currNode->data ) <= 0) {
 
-			//char* currDescr = list->printData( currNode->data );
-			//char* newDescr = list->printData( toBeAdded );
+			char* currDescr = list->printData( currNode->data );
+			char* newDescr = list->printData( toBeAdded );
 
 			//printf( "Inserting %s before %s\n", newDescr, currDescr );
 
-			//free( currDescr );
-			//free( newDescr );
+			free( currDescr );
+			free( newDescr );
 
 			Node* newNode = initializeNode( toBeAdded );
 			newNode->next = currNode;

@@ -16,14 +16,20 @@
 2 DATE 12 NOV 1996
 2 PLAC Georgetown, ON
 0 @I002@ INDI
-1 NAME Random /Name/
+1 NAME Duncan /Firth/
 0 @I003@ INDI
-1 NAME Test /Values/
+1 NAME Jennifer /Firth/
+0 @I004@ INDI
+1 NAME Kaya /Firth/
+0 @I005@ INDI
+1 NAME Isaac /Firth/
 0 @F001@ FAM
-1 HUSB @I001@
-1 WIFE @I002@
-1 CHIL @I003@
+1 HUSB @I002@
+1 CHIL @I001@
+1 CHIL @I004@
+1 CHIL @I005@
 1 MARR
 2 DATE 11 FEB 2018
 0 @F002@ FAM
+1 HUSB @I001@
 0 TRLR
