@@ -73,7 +73,7 @@ void clearList( List* list ) {
 Node* initializeNode( void* data ) {
 	Node* tmpNode;
 
-	tmpNode = malloc( sizeof( Node ) );
+	tmpNode = calloc( sizeof( Node ), 1 );
 
 	if (tmpNode == NULL){
 		return NULL;
@@ -214,7 +214,6 @@ void* deleteDataFromList( List* list, void* toBeDeleted ) {
 	return NULL;
 }
 
-
 /**
  * Uses the comparison function pointer to place the element in the  appropriate position in the list.
  * NOTE: Should be used as the only insert function if a sorted list is required.
@@ -250,13 +249,13 @@ void insertSorted( List *list, void *toBeAdded ) {
 	while (currNode != NULL) {
 		if (list->compare( toBeAdded, currNode->data ) <= 0) {
 
-			char* currDescr = list->printData( currNode->data );
-			char* newDescr = list->printData( toBeAdded );
+			//char* currDescr = list->printData( currNode->data );
+			//char* newDescr = list->printData( toBeAdded );
 
 			//printf( "Inserting %s before %s\n", newDescr, currDescr );
 
-			free( currDescr );
-			free( newDescr );
+			//free( currDescr );
+			//free( newDescr );
 
 			Node* newNode = initializeNode( toBeAdded );
 			newNode->next = currNode;
@@ -285,7 +284,7 @@ char* toString( List list ) {
 	ListIterator iter = createIterator( list );
 	char* str;
 
-	str = malloc( sizeof( char ) );
+	str = calloc( sizeof( char ), 1 );
 	strcpy( str, "" );
 
 	void* elem;

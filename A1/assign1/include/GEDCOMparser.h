@@ -12,7 +12,7 @@
 typedef enum cSet {ANSEL, UTF8, UNICODE, ASCII} CharSet;
 
 // Error code enum
-typedef enum eCode {OK, INV_FILE, INV_GEDCOM, INV_HEADER, INV_RECORD, OTHER} ErrorCode;
+typedef enum eCode {OK, INV_FILE, INV_GEDCOM, INV_HEADER, INV_RECORD, OTHER_ERROR} ErrorCode;
 
 // Represents a generic event, e.g. individual event, family event, etc.
 typedef struct {

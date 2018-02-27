@@ -73,6 +73,7 @@ GEDCOMline* parseGEDCOMline( char* line );
  */
 void removeHardReturn( char *line );
 
+bool surnamePredicate( const void* first, const void* second );
 
 /************************ End of Internal Functions ***************************/
 
@@ -211,9 +212,7 @@ GEDCOMerror createError( ErrorCode type, int line ) {
 }
 
 Event* createEvent( GEDCOMline** record, int count ) {
-    Event* event = malloc( sizeof( Event ) );
-    event->date = NULL;
-    event->place = NULL;
+    Event* event = calloc( sizeof( Event ), 1 );
     event->otherFields = initializeList( &printField, &deleteField, &compareFields );
 
     if (strlen( record[0]->tag ) > 4) {
@@ -515,9 +514,12 @@ int compareReferencePairs( const void* first, const void* second ) {
 }
 
 void combineLists( List* toKeep, List* toDestroy, int destroy ) {
+    if (getLength( *toDestroy ) < 0) {
+        return;
+    }
     Node* p1 = toDestroy->head;
     while (p1 != NULL) {
-        void* data = findElement( *toKeep, &compareFunc, p1->data );
+        void* data = findElement( *toKeep, &surnamePredicate, p1->data );
         if (data == NULL) { // element does not exist in list yet
             insertSorted( toKeep, p1->data );
         }
@@ -759,12 +761,12 @@ CharSet getCharSetFromString( char* string ) {
 }
 
 List getChildren( Individual* indiv ) {
-    List list = initializeList( &printIndividual, &dummyDelete, &mySurnameCompare );
+    List list = initializeList( &printIndividualNames, &dummyDelete, &mySurnameCompare );
     if (indiv == NULL) {
         return list;
     }
 
-    if (getLength( indiv->families ) != 0) {
+    if (getLength( indiv->families ) > 0) {
         ListIterator iter = createIterator( indiv->families );
         void* data;
         // for each family
@@ -773,7 +775,7 @@ List getChildren( Individual* indiv ) {
             // that indiv is a parent of
             if (isParent( fam, indiv )) {
                 // add children to list
-                if (getLength( fam->children ) != 0) {
+                if (getLength( fam->children ) > 0) {
                     ListIterator iter2 = createIterator( fam->children );
                     void* data2;
                     while ((data2 = nextElement( &iter2 )) != NULL) {
@@ -787,7 +789,7 @@ List getChildren( Individual* indiv ) {
 }
 
 List getParents( Individual* indiv ) {
-    List parents = initializeList( &printIndividualNames, &dummyDelete, &mySurnameCompare );
+    List parents = initializeList( &printIndividual, &dummyDelete, &mySurnameCompare );
     if (indiv == NULL) {
         return parents;
     }
@@ -1290,6 +1292,42 @@ char* robust_fgets( char* dest, int max, FILE* stream ) {
         return NULL;
     }
     return str;
+}
+
+bool surnamePredicate( const void* first, const void* second ) {
+    if (first == NULL || second == NULL) {
+        return false;
+    }
+    Individual* one = (Individual*)first;
+    Individual* two = (Individual*)second;
+
+    if (one->surname != NULL) {
+        if (two->surname != NULL) {
+            int comp = strcmp( one->surname, two->surname );
+            if (comp != 0) {
+                return false;
+            } else {
+                if (one->givenName != NULL) {
+                    if (two->givenName != NULL) {
+                        int comp1 = strcmp( one->givenName, two->givenName );
+                        if (comp1 != 0) {
+                            return false;
+                        } else {
+                            return true;
+                        }
+                    } else {
+                        return false;
+                    }
+                } else {
+                    return false;
+                }
+            }
+        } else {
+            return false;
+        }
+    } else {
+        return false;
+    }
 }
 
 bool writeEvent( Event* event, FILE* stream ) {

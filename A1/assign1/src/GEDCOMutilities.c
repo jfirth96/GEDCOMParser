@@ -35,13 +35,6 @@ int compareReferencePairs( const void* first, const void* second );
 Individual* findReference( char* input );
 
 /**
- * Returns a CharSet variable from the given string to use for assignment in the Header
- * @param string The string representation of a CharSet value
- * @return CharSet value able to be assigned
- */
-CharSet getCharSetFromString( char* string );
-
-/**
  * Converts a CharSet value into a string to be used for printing
  *
  * @param arg The CharSet to convert
@@ -65,7 +58,6 @@ bool isFamEvent( char* tag );
  */
 bool isIndividualEvent( char* tag );
 
-
 /**
  * Function to parse a GEDCOMline from a given string
  *
@@ -74,7 +66,6 @@ bool isIndividualEvent( char* tag );
  */
 GEDCOMline* parseGEDCOMline( char* line );
 
-
 /**
  * Removes the newline character from the given string
  *
@@ -82,6 +73,7 @@ GEDCOMline* parseGEDCOMline( char* line );
  */
 void removeHardReturn( char *line );
 
+bool surnamePredicate( const void* first, const void* second );
 
 /************************ End of Internal Functions ***************************/
 
@@ -143,6 +135,27 @@ bool addFieldToRecord( void* record, Field* toAdd, RecordType type ) {
     return true;
 }
 
+void addReferencePairToArray( Individual* indi, int refNum ) {
+    if (indi == NULL || refNum < 0) {
+        return;
+    }
+    RefPair* pair = calloc( sizeof( RefPair ), 1 );
+    pair->indi = indi;
+    char* temp = malloc( sizeof( char ) * 10 );
+    sprintf( temp, "@I00%d@", refNum );
+    pair->extRefID = calloc( sizeof( char ), (strlen( temp ) + 1) );
+    strcpy( pair->extRefID, temp );
+    free( temp );
+    if (referenceArray != NULL) {
+        referenceArray = realloc( referenceArray, sizeof( RefPair* ) * (refCount + 1) );
+    } else {
+        referenceArray = calloc( sizeof( RefPair* ), (refCount + 1) );
+    }
+    referenceArray[refCount] = pair;
+    refCount++;
+    return;
+}
+
 bool addToFamily( Family* fam, Individual* indi, RelationType relation ) {
     if (fam == NULL || indi == NULL) {
         return false;
@@ -199,9 +212,7 @@ GEDCOMerror createError( ErrorCode type, int line ) {
 }
 
 Event* createEvent( GEDCOMline** record, int count ) {
-    Event* event = malloc( sizeof( Event ) );
-    event->date = NULL;
-    event->place = NULL;
+    Event* event = calloc( sizeof( Event ), 1 );
     event->otherFields = initializeList( &printField, &deleteField, &compareFields );
 
     if (strlen( record[0]->tag ) > 4) {
@@ -324,6 +335,9 @@ Header* createHeader( GEDCOMline** record, int count ) {
     if (record == NULL) {
         return NULL;
     }
+    if (record[0]->level != 0) {
+        return NULL;
+    }
     bool sourceFound, GEDCfound, submitFound, charSetFound;
     sourceFound = GEDCfound = submitFound = charSetFound = false;
 
@@ -385,9 +399,7 @@ Individual* createIndividual( GEDCOMline** record, int count ) {
         return NULL;
     }
 
-    Individual* indi = malloc( sizeof( Individual ) );
-    indi->givenName = NULL;
-    indi->surname = NULL;
+    Individual* indi = calloc( sizeof( Individual ), 1 );
     indi->otherFields = initializeList( &printField, &deleteField, &compareFields );
     indi->events = initializeList( &printEvent, &deleteEvent, &compareEvents );
     indi->families = initializeList( &printFamily, &dummyDelete, &compareFamilies );
@@ -423,6 +435,7 @@ Individual* createIndividual( GEDCOMline** record, int count ) {
             }
             addEventToRecord( (void*)indi, temp, INDI );
             free( subarray );
+            i = i + (subCount - 1);
         } else {
             if (strcmp( record[i]->tag, "NAME" ) == 0) {
                 char* token = strtok( record[i]->lineValue, "/" );
@@ -444,6 +457,10 @@ Individual* createIndividual( GEDCOMline** record, int count ) {
                     indi->surname = malloc( sizeof( char ) * (strlen( token ) + 1) );
                     strcpy( indi->surname, token );
                 }
+            } else if (strcmp( record[i]->tag, "FAMC" ) == 0 || strcmp( record[i]->tag, "FAMS" ) == 0) {
+                // discard so they don't end up in otherFields
+            } else if (strcmp( record[i]->tag, "GIVN" ) == 0 || strcmp( record[i]->tag, "SURN" ) == 0) {
+				// discard so they don't end up in otherFields
             } else {
                 addFieldToRecord( (void*)indi, createField( record[i]->tag, record[i]->lineValue ), INDI );
             }
@@ -481,7 +498,7 @@ Submitter* createSubmitter( GEDCOMline** record, int count ) {
 
 int compareReferencePairs( const void* first, const void* second ) {
     if (first == NULL || second == NULL) {
-        return OTHER;
+        return OTHER_ERROR;
     }
 
     RefPair* pair1 = ((RefPair*)first);
@@ -493,6 +510,23 @@ int compareReferencePairs( const void* first, const void* second ) {
         return -1;
     } else {
         return 0;
+    }
+}
+
+void combineLists( List* toKeep, List* toDestroy, int destroy ) {
+    if (getLength( *toDestroy ) < 0) {
+        return;
+    }
+    Node* p1 = toDestroy->head;
+    while (p1 != NULL) {
+        void* data = findElement( *toKeep, &surnamePredicate, p1->data );
+        if (data == NULL) { // element does not exist in list yet
+            insertSorted( toKeep, p1->data );
+        }
+        p1 = p1->next;
+    }
+    if (destroy) {
+        clearList( toDestroy );
     }
 }
 
@@ -600,7 +634,20 @@ void deleteSubmitter( Submitter* sub ) {
     free( sub );
 }
 
+void deleteDescendant( void* arg ) {
+    if (arg == NULL) {
+        return;
+    }
+
+    List* list = (List*)arg;
+    clearList( list );
+    free( list );
+    list = NULL;
+    return;
+}
+
 void dummyDelete( void* arg ) {
+    arg = NULL;
     return;
 }
 
@@ -622,6 +669,50 @@ int familyMemberCount( const void* family ) {
     return members;
 }
 
+char* findExternalReferenceID( Individual* indi ) {
+    // Sanity checks
+    if (indi == NULL) {
+        return NULL;
+    }
+
+    for (int i = 0; i < refCount; i++) {
+        if (compareIndividuals( indi, referenceArray[i]->indi ) == 0) {
+            char* str = calloc( sizeof( char ), (strlen( referenceArray[i]->extRefID ) + 1) );
+            strcpy( str, referenceArray[i]->extRefID );
+            return str;
+        }
+    }
+    return NULL;
+}
+
+char* findFamReferenceID( Family* fam ) {
+    if (fam == NULL) {
+        return NULL;
+    }
+
+    for (int i = 0; i < famCount; i++) {
+        if (compareFamilies( fam, famArray[i]->fam ) == 0) {
+            char* str = calloc( sizeof( char ), (strlen( famArray[i]->extRefID ) + 1) );
+            strcpy( str, famArray[i]->extRefID );
+            return str;
+        }
+    }
+    return NULL;
+}
+
+Family* findFamilyReference( char* input ) {
+    if (input == NULL) {
+        return NULL;
+    }
+
+    for (int i = 0; i < famCount; i++) {
+        if (strcmp( famArray[i]->extRefID, input ) == 0) {
+            return famArray[i]->fam;
+        }
+    }
+    return NULL;
+}
+
 Individual* findReference( char* input ) {
     if (input == NULL) {
         return NULL;
@@ -633,6 +724,26 @@ Individual* findReference( char* input ) {
         }
     }
     return NULL;
+}
+
+RelationType getFamilyRelation( Family* fam, Individual* indi ) {
+    if (fam == NULL || indi == NULL) {
+        return NONMEM;
+    }
+    if (fam->husband == indi) {
+        return HUSB;
+    } else if (fam->wife == indi) {
+        return WIFE;
+    } else if (getLength( fam->children ) != 0) {
+        ListIterator iter = createIterator( fam->children );
+        void* elem;
+        while ((elem = nextElement( &iter )) != NULL) {
+            if ((Individual*)elem == indi) {
+                return CHIL;
+            }
+        }
+    }
+    return NONMEM;
 }
 
 CharSet getCharSetFromString( char* string ) {
@@ -647,6 +758,60 @@ CharSet getCharSetFromString( char* string ) {
     } else {
         return -1;
     }
+}
+
+List getChildren( Individual* indiv ) {
+    List list = initializeList( &printIndividualNames, &dummyDelete, &mySurnameCompare );
+    if (indiv == NULL) {
+        return list;
+    }
+
+    if (getLength( indiv->families ) > 0) {
+        ListIterator iter = createIterator( indiv->families );
+        void* data;
+        // for each family
+        while ((data = nextElement( &iter )) != NULL) {
+            Family* fam = (Family*)data;
+            // that indiv is a parent of
+            if (isParent( fam, indiv )) {
+                // add children to list
+                if (getLength( fam->children ) > 0) {
+                    ListIterator iter2 = createIterator( fam->children );
+                    void* data2;
+                    while ((data2 = nextElement( &iter2 )) != NULL) {
+                        insertSorted( &list, data2 );
+                    }
+                }
+            }
+        }
+    }
+    return list;
+}
+
+List getParents( Individual* indiv ) {
+    List parents = initializeList( &printIndividual, &dummyDelete, &mySurnameCompare );
+    if (indiv == NULL) {
+        return parents;
+    }
+    if (getLength( indiv->families ) != 0) {
+        ListIterator iter = createIterator( indiv->families );
+        void* data;
+        // for each family
+        while ((data = nextElement( &iter )) != NULL) {
+            Family* fam = (Family*)data;
+            // that indiv is NOT a parent of
+            if (!isParent( fam, indiv )) {
+                // add parents to list
+                if (fam->husband != NULL) {
+                    insertSorted( &parents, (void*)fam->husband );
+                }
+                if (fam->wife != NULL) {
+                    insertSorted( &parents, (void*)fam->wife );
+                }
+            }
+        }
+    }
+    return parents;
 }
 
 char* getStringFromCharSet( CharSet arg ) {
@@ -672,6 +837,30 @@ char* getStringFromCharSet( CharSet arg ) {
     } else {
         return string;
     }
+}
+
+void insertChar( char** str, char insert, int pos ) {
+    if (str == NULL || *str == NULL) {
+        return;
+    }
+    char* temp = calloc( sizeof( char ), pos + 3 );
+    strncpy( temp, *str, pos );
+    char* temp2 = calloc( sizeof( char ), 2 );
+    sprintf( temp2, "%c", insert );
+    strcat( temp, temp2 );
+    free( temp2 );
+    int i;
+    for (temp2 = *str, i = 0; i < pos; temp2++, i++);
+
+    char* temp3 = calloc( sizeof( char ), strlen( temp2 ) + 1 );
+    strcpy( temp3, temp2 );
+    *str = realloc( *str, sizeof( char ) * strlen( *str ) + 2 );
+    strcpy( *str, temp );
+    strcat( *str, temp3 );
+    free( temp );
+    free( temp3 );
+
+    return;
 }
 
 bool isValidHeadTag( char* tag ) {
@@ -837,6 +1026,38 @@ bool modifyGEDCOMline( GEDCOMline* line, char* modValue ) {
     return true;
 }
 
+int mySurnameCompare( const void* first, const void* second ) {
+    if (first == NULL || second == NULL) {
+        return OTHER_ERROR;
+    }
+
+    Individual* one = (Individual*)first;
+    Individual* two = (Individual*)second;
+
+    if (strlen( one->surname ) == 0 && strlen( two->surname ) != 0) {
+        return 1;
+    } else if (strlen( one->surname ) != 0 && strlen( two->surname ) == 0) {
+        return -1;
+    }
+
+    int compVal = strcmp( one->surname, two->surname );
+    if (compVal == 0) {
+        int compVal2 = strcmp( one->givenName, two->givenName );
+        if (compVal2 > 0) {
+            return 1;
+        } else if (compVal2 < 0) {
+            return -1;
+        } else {
+            return 0;
+        }
+    } else if (compVal > 0) {
+        return 1;
+    } else {
+        return -1;
+    }
+
+}
+
 GEDCOMline* parseGEDCOMline( char* line ) {
     if (line == NULL || strlen( line ) > 255) {
         return NULL;
@@ -852,7 +1073,7 @@ GEDCOMline* parseGEDCOMline( char* line ) {
         free( toReturn );
         return NULL;
     }
-    temp = strtok( NULL, " " );
+    temp = strtok( NULL, " \n\r" );
     if (temp[0] == '@') {
         toReturn->extRefID = malloc( sizeof( char ) * (strlen( temp ) + 1) );
         strcpy( toReturn->extRefID, temp );
@@ -860,7 +1081,7 @@ GEDCOMline* parseGEDCOMline( char* line ) {
     } else {
         toReturn->extRefID = NULL;
     }
-    if (strlen( temp ) > 31) {
+    if (strlen( temp ) > 31) { // max tag length
         free( toReturn );
         return NULL;
     }
@@ -886,6 +1107,56 @@ GEDCOMline* parseGEDCOMline( char* line ) {
     return toReturn;
 }
 
+char* printDescendants( void* toBePrinted ) {
+    if (toBePrinted == NULL) {
+        return NULL;
+    }
+    List* list = (List*)toBePrinted;
+    char* str = calloc( sizeof( char ), 3 );
+    strcpy( str, "[ " );
+    if (getLength( *list ) != 0) {
+        ListIterator iter = createIterator( *list );
+        void* elem;
+        while ((elem = nextElement( &iter )) != NULL) {
+            char* tmp = list->printData( elem );
+            str = realloc( str, sizeof( char ) * (strlen( str ) + strlen( tmp ) + 1) );
+            strcat( str, tmp );
+            free( tmp );
+        }
+    }
+    if (strlen( str ) == 0) {
+        return NULL;
+    } else {
+        if (str[strlen( str ) - 2] == ',') {
+            str[strlen( str ) - 2] = ' ';
+            str[strlen( str ) - 1] = ']';
+        }
+        str = realloc( str, sizeof( char ) * (strlen( str ) + 2) );
+        //strcat( str, "\n" );
+        return str;
+    }
+}
+
+char* printGenerationList( void* toBePrinted ) {
+    if (toBePrinted == NULL) {
+        return NULL;
+    }
+
+    Individual indi = *((Individual*)toBePrinted);
+    char* string = calloc( sizeof( char ), 1 );
+    if (indi.givenName != NULL) {
+        string = realloc( string, sizeof( char ) * (strlen( indi.givenName ) + 2) );
+        strcpy( string, indi.givenName );
+        strcat( string, " " );
+    }
+    if (indi.surname != NULL) {
+        string = realloc( string, sizeof( char ) * (strlen( string ) + strlen( indi.surname ) + 4) );
+        strcat( string, indi.surname );
+        strcat( string, ", " );
+    }
+    return string;
+}
+
 char* printGEDCOMline( GEDCOMline* line ) {
     if (line == NULL) {
         return NULL;
@@ -908,6 +1179,7 @@ char* printGEDCOMline( GEDCOMline* line ) {
 
 char* printHeader( Header* head ) {
     if (head == NULL) {
+        printf( "null\n" );
         return NULL;
     }
     char* string = NULL;
@@ -971,18 +1243,22 @@ void removeHardReturn( char *line ) {
 }
 
 void recursiveGetDescendants( List* list, const Individual* person ) {
-    ListIterator famIter = createIterator( person->families );
-    void* famElem;
-    while ((famElem = nextElement( &famIter )) != NULL) {
-        Family* currFam = ((Family*)famElem);
-        if (isParent( currFam, person )) {
-            ListIterator indivIter = createIterator( currFam->children );
-            void* indivElem;
-            while ((indivElem = nextElement( &indivIter )) != NULL) {
-                insertSorted( list, indivElem );
-                recursiveGetDescendants( list, (const Individual*)indivElem );
+    Node* node1, *node2;
+    Family* fam;
+
+    node1 = person->families.head;
+
+    while (node1 != NULL) {
+        fam = node1->data;
+        if (fam->husband == person || fam->wife == person) {
+            node2 = fam->children.head;
+            while (node2 != NULL) {
+                insertSorted( list, node2->data );
+                recursiveGetDescendants( list, node2->data );
+                node2 = node2->next;
             }
         }
+        node1 = node1->next;
     }
 }
 
@@ -1016,4 +1292,209 @@ char* robust_fgets( char* dest, int max, FILE* stream ) {
         return NULL;
     }
     return str;
+}
+
+bool surnamePredicate( const void* first, const void* second ) {
+    if (first == NULL || second == NULL) {
+        return false;
+    }
+    Individual* one = (Individual*)first;
+    Individual* two = (Individual*)second;
+
+    if (one->surname != NULL) {
+        if (two->surname != NULL) {
+            int comp = strcmp( one->surname, two->surname );
+            if (comp != 0) {
+                return false;
+            } else {
+                if (one->givenName != NULL) {
+                    if (two->givenName != NULL) {
+                        int comp1 = strcmp( one->givenName, two->givenName );
+                        if (comp1 != 0) {
+                            return false;
+                        } else {
+                            return true;
+                        }
+                    } else {
+                        return false;
+                    }
+                } else {
+                    return false;
+                }
+            }
+        } else {
+            return false;
+        }
+    } else {
+        return false;
+    }
+}
+
+bool writeEvent( Event* event, FILE* stream ) {
+    if (event == NULL) {
+        return false;
+    }
+    fprintf( stream, "1 %s\n", event->type );
+    if (event->date != NULL) {
+        fprintf( stream, "2 DATE %s\n", event->date );
+    }
+    if (event->place != NULL) {
+        fprintf( stream, "2 PLAC %s\n", event->place );
+    }
+    return true;
+}
+
+bool writeField( Field* field, FILE* stream ) {
+    if (field == NULL) {
+        return false;
+    }
+    char* append = printField( field );
+    if (append == NULL) {
+        return false;
+    }
+    fprintf( stream, "1 %s", append );
+    free( append );
+    return true;
+}
+
+bool writeHeader( Header* head, FILE* stream ) {
+    if (head == NULL) {
+        return false;
+    }
+
+    fprintf( stream, "0 HEAD\n" );
+    fprintf( stream, "1 SOUR %s\n", head->source );
+    fprintf( stream, "1 GEDC\n" );
+    fprintf( stream, "2 VERS %.1f\n", head->gedcVersion );
+    fprintf( stream, "2 FORM LINEAGE-LINKED\n" );
+    fprintf( stream, "1 CHAR ASCII\n" );
+    fprintf( stream, "1 SUBM @S001@\n" );
+    return true;
+}
+
+bool writeIndividual( Individual* indi, FILE* stream, int recordNumber ) {
+    if (indi == NULL) {
+        return false;
+    }
+    fprintf( stream, "0 @I00%d@ INDI\n", recordNumber );
+    fprintf( stream, "1 NAME " );
+    bool first, last;
+    first = last = false;
+    if (indi->givenName != NULL) {
+        first = true;
+        fprintf( stream, "%s ", indi->givenName );
+    } else {
+        fprintf( stream, "Not named " );
+    }
+    if (indi->surname != NULL) {
+        last = true;
+        fprintf( stream, "/%s/\n", indi->surname );
+    } else {
+        fprintf( stream, "//\n" );
+    }
+    if (first) {
+        fprintf( stream, "2 GIVN %s\n", indi->givenName );
+    }
+    if (last) {
+        fprintf( stream, "2 SURN %s\n", indi->surname );
+    }
+    if (getLength( indi->otherFields ) != 0) {
+        ListIterator iter = createIterator( indi->otherFields );
+        void* elem;
+        while ((elem = nextElement( &iter )) != NULL) {
+            Field* field = (Field*)elem;
+            writeField( field, stream );
+        }
+    }
+    if (getLength( indi->events ) != 0) {
+        ListIterator iter = createIterator( indi->events );
+        void* elem;
+        while ((elem = nextElement( &iter )) != NULL) {
+            Event* event = (Event*)elem;
+            writeEvent( event, stream );
+        }
+    }
+    if (getLength( indi->families ) != 0) {
+        ListIterator iter = createIterator( indi->families );
+        void* elem;
+        while ((elem = nextElement( &iter )) != NULL) {
+            Family* fam = (Family*)elem;
+            RelationType type = getFamilyRelation( fam, indi );
+            char* string;
+            switch (type) {
+                case HUSB:
+                case WIFE:
+                    string = findFamReferenceID( fam );
+                    fprintf( stream, "1 FAMS %s\n", string );
+                    break;
+                case CHIL:
+                    string = findFamReferenceID( fam );
+                    fprintf( stream, "1 FAMC %s\n", string );
+                    break;
+                default:
+                    break;
+            }
+            free( string );
+        }
+    }
+    return true;
+}
+
+bool writeFamily( Family* fam, FILE* stream ) {
+    if (fam == NULL) {
+        return false;
+    }
+    char* string;
+    string = findFamReferenceID( fam );
+    if (string != NULL) {
+        fprintf( stream, "0 %s FAM\n", string );
+        free( string );
+    } else {
+        return false;
+    }
+    if (fam->husband != NULL) {
+        string = findExternalReferenceID( fam->husband );
+        fprintf( stream, "1 HUSB %s\n", string );
+        free( string );
+    }
+    if (fam->wife != NULL) {
+        string = findExternalReferenceID( fam->wife );
+        fprintf( stream, "1 WIFE %s\n", string );
+        free( string );
+    }
+    if (getLength( fam->children ) != 0) {
+        ListIterator iter = createIterator( fam->children );
+        void* elem;
+        while ((elem = nextElement( &iter )) != NULL) {
+            // find the appropriate ID tag to print based on Individual pointer
+            // print "1 CHIL @CHIL_ID@\n"
+            string = findExternalReferenceID( (Individual*)elem );
+            fprintf( stream, "1 CHIL %s\n", string );
+            free( string );
+        }
+    }
+    if (getLength( fam->events ) != 0) {
+        ListIterator iter = createIterator( fam->events );
+        void* elem;
+        while ((elem = nextElement( &iter )) != NULL) {
+            Event* event = (Event*)elem;
+            writeEvent( event, stream );
+        }
+    }
+    return true;
+}
+
+bool writeSubmitter( Submitter* sub, FILE* stream ) {
+    if (sub == NULL) {
+        return false;
+    }
+
+    fprintf( stream, "0 @S001@ SUBM\n" );
+    if (sub->submitterName != NULL) {
+        fprintf( stream, "1 NAME %s\n", sub->submitterName );
+    }
+    if (strlen( sub->address ) > 0) {
+        fprintf( stream, "1 ADDR %s\n", sub->address );
+    }
+    return true;
 }

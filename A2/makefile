@@ -33,10 +33,10 @@ LinkedList.o : $(SRC)LinkedListAPI.c $(INC)LinkedListAPI.h
 	$(CC) $(CFLAGS) -c $(SRC)LinkedListAPI.c -o $(BIN)LinkedListAPI.o
 
 run :
-	./$(TEST)
+	$(TEST)
 
 memCheck :
-	valgrind --leak-check=full --show-leak-kinds=all --track-origins=yes ./$(TEST)
+	valgrind --leak-check=full --show-leak-kinds=all --track-origins=yes $(TEST)
 
 clean :
 	rm $(BIN)*

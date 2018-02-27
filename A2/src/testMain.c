@@ -6,8 +6,8 @@
 
 int main( int argc, char** argv ) {
 
-    char *filename = malloc( sizeof( char ) * (strlen( "input/shakespeare.ged" ) + 1) );
-    strcpy( filename, "input/shakespeare.ged" );
+    char *filename = malloc( sizeof( char ) * (strlen( "input/testFile.ged" ) + 1) );
+    strcpy( filename, "input/testFile.ged" );
     GEDCOMobject *obj = NULL;
     GEDCOMerror error = createGEDCOM( filename, &obj );
     free( filename );
@@ -18,7 +18,7 @@ int main( int argc, char** argv ) {
         free( print );
 
         // Write GEDCOM object
-        GEDCOMerror writeError = writeGEDCOM( "input/sampleOut2.ged", obj );
+        GEDCOMerror writeError = writeGEDCOM( "input/sampleOut3.ged", obj );
         print = printError( writeError );
         printf( "WRITE: %s\n", print );
         free( print );
@@ -36,7 +36,7 @@ int main( int argc, char** argv ) {
         free( print );
 
         // Try getDescendantsListN
-        List descendants = getDescendantListN( obj, obj->individuals.head->data, 0 );
+        List descendants = getDescendantListN( obj, obj->individuals.head->data, 10 );
         print = toString( descendants );
         printf( "*********************************************\n" );
         printf( "-- getDescendantListN --\n%s\n----\n", print );
@@ -45,7 +45,7 @@ int main( int argc, char** argv ) {
         clearList( &descendants );
 
         // Try getAncestorListN
-        List ancestors = getAncestorListN( obj, obj->individuals.head->data, 0 );
+        List ancestors = getAncestorListN( obj, obj->individuals.head->data, 10 );
         print = toString( ancestors );
         printf( "*********************************************\n" );
         printf( "-- getAncestorListN --\n%s\n----\n", print );
@@ -74,7 +74,7 @@ int main( int argc, char** argv ) {
 
         // Test iListToJSON
         print = iListToJSON( obj->individuals );
-        //printf( "-- ILISTtoJSON --\n%s\n", print );
+        printf( "-- ILISTtoJSON --\n%s\n", print );
         free( print );
 
 
@@ -89,10 +89,11 @@ int main( int argc, char** argv ) {
         deleteGEDCOM( obj1 );
 
         // Test validateGEDCOM
-        deleteIndividual( obj->individuals.head->data );
-        obj->individuals.head->data = NULL;
+        Family* f = (Family*)(obj->families.head->data);
+        obj->families.head->data = NULL;
         printf( "This should not validate\n" );
         code = validateGEDCOM( obj );
+        deleteFamily( f );
         writeError = createError( code, -1 );
         print = printError( writeError );
         printf( "%s\n", print );

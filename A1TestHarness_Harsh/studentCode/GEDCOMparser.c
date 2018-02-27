@@ -376,7 +376,7 @@ Individual* findPerson( const GEDCOMobject* familyRecord, bool (*compare)( const
     }
     return NULL;
 }
-
+/*
 List getAncestorListN(const GEDCOMobject* familyRecord, const Individual* person, int maxGen) {
     List ancestors = initializeList( &printDescendants, &deleteDescendant, &mySurnameCompare );
     // Sanity checks
@@ -451,7 +451,7 @@ List getAncestorListN(const GEDCOMobject* familyRecord, const Individual* person
 
     return ancestors;
 }
-
+*/
 // Deprecated from A1
 List getDescendants( const GEDCOMobject* familyRecord, const Individual* person ) {
     List toReturn = initializeList( &printIndividualNames, &dummyDelete, &compareIndividuals );
@@ -464,7 +464,7 @@ List getDescendants( const GEDCOMobject* familyRecord, const Individual* person 
     return toReturn;
 }
 
-List getDescendantListN(const GEDCOMobject* familyRecord, const Individual* person, unsigned int maxGen) {
+/*List getDescendantListN(const GEDCOMobject* familyRecord, const Individual* person, unsigned int maxGen) {
     // Sanity checks
     List descendants = initializeList( &printDescendants, &deleteDescendant, &mySurnameCompare );
     if (familyRecord == NULL || person == NULL) {
@@ -475,17 +475,17 @@ List getDescendantListN(const GEDCOMobject* familyRecord, const Individual* pers
     List getChildrenOf = initializeList( &printGenerationList, &dummyDelete, &mySurnameCompare );
 
     // Put given individual as first person in list
-    insertBack( &getChildrenOf, (void*)person );
+    insertSorted( &getChildrenOf, (void*)person );
 
     // foreach generation ...
     for (int i = 0; i < maxGen; i++) {
-        List generation = initializeList( &printIndividualNames, &dummyDelete, &mySurnameCompare );
+        List generation = initializeList( &printGenerationList, &dummyDelete, &mySurnameCompare );
         // foreach person in getChildrenOf list
         ListIterator iter = createIterator( getChildrenOf );
         void* elem;
         while ((elem = nextElement( &iter )) != NULL) {
             List tmp  = getChildren( (Individual*)elem );
-            combineLists( &generation, &(tmp), 1 );
+            combineLists( &generation, &tmp, 1 );
         }
         clearList( &getChildrenOf );
         if (getLength( generation ) == 0) {
@@ -494,12 +494,13 @@ List getDescendantListN(const GEDCOMobject* familyRecord, const Individual* pers
         // put generation list into descendants list (required list pointer)
         List* ptr = calloc( sizeof( List ), 1 );
         ptr->deleteData = &dummyDelete;
-    	ptr->compare = &compareIndividuals;
+    	ptr->compare = &mySurnameCompare;
     	ptr->printData = &printGenerationList;
         combineLists( ptr, &generation, 0 );
         insertBack( &descendants, (void*)(ptr) );
         // put current generation of individuals into getChildrenOf list
-        combineLists( &getChildrenOf, &generation, 1 );
+        combineLists( &getChildrenOf, &generation, 0 );
+        clearList( &generation );
     }
     if (getLength( getChildrenOf ) != 0) {
         clearList( &getChildrenOf );
@@ -512,364 +513,411 @@ List getDescendantListN(const GEDCOMobject* familyRecord, const Individual* pers
         insertBack( &getChildrenOf, (void*)person );
         do { // do while generation is not empty
             List generation = initializeList( &printGenerationList, &dummyDelete, &mySurnameCompare );
+            // foreach person in getChildrenOf list
             ListIterator iter = createIterator( getChildrenOf );
             void* elem;
             while ((elem = nextElement( &iter )) != NULL) {
-                List tmp = getChildren( (Individual*)elem );
-                combineLists( &generation, &(tmp), 1 );
+                List tmp  = getChildren( (Individual*)elem );
+                combineLists( &generation, &tmp, 1 );
             }
             clearList( &getChildrenOf );
             if (getLength( generation ) == 0) {
                 break;
             }
-
+            // put generation list into descendants list (required list pointer)
             List* ptr = calloc( sizeof( List ), 1 );
-            ptr->head = NULL;
-            ptr->tail = NULL;
-            ptr->length = 0;
             ptr->deleteData = &dummyDelete;
-            ptr->compare = &compareIndividuals;
-            ptr->printData = &printGenerationList;
+        	ptr->compare = &mySurnameCompare;
+        	ptr->printData = &printGenerationList;
             combineLists( ptr, &generation, 0 );
             insertBack( &descendants, (void*)(ptr) );
             // put current generation of individuals into getChildrenOf list
-            combineLists( &getChildrenOf, &generation, 1 );
-            //clearList( &generation );
+            combineLists( &getChildrenOf, &generation, 0 );
+            clearList( &generation );
         } while (1);
         clearList( &getChildrenOf );
     }
     return descendants;
 }
-
-ErrorCode validateGEDCOM( const GEDCOMobject* obj ) {
-    // INV_GEDCOM cases
-    if (obj->header == NULL || obj->submitter == NULL) {
-        return INV_GEDCOM;
-    }
-
-    // INV_HEADER cases
-    Header* head = obj->header;
-    if (strlen( head->source ) == 0 || head->submitter == NULL) {
-        return INV_HEADER;
-    }
-
-    // INV_RECORD cases
-    Submitter* sub = obj->submitter;
-    if (sub->submitterName != NULL && strlen( sub->submitterName ) > 0) {
-        // do nothing all is good
-    } else {
-        return INV_RECORD;
-    }
-    /* TODO
-        - check for fields that are too long (i.e. tag > 31, lineValue > 200, etc)
-    */
-
-    // INV_RECORD - NULL pointer in individual list
-    if (getLength( obj->individuals ) != 0) {
-        // foreach indiv in obj->indivs
-        ListIterator iter = createIterator( obj->individuals );
-        void* elem;
-        int index = 0;
-        while ((elem = nextElement( &iter )) != NULL) {
-            index++;
-            Individual* indiv = (Individual*)elem;
-            // verify line lengths ???
-
-            // foreach fam in indiv->families
-            ListIterator famIter = createIterator( indiv->families );
-            void* famElem;
-            int index1 = 0;
-            while ((famElem = nextElement( &famIter )) != NULL) {
-                index1++;
-                Family* fam = (Family*)famElem;
-                if (fam->husband == NULL || fam->wife == NULL) {
-                    return INV_RECORD;
-                }
-                // foreach child in fam->children
-                ListIterator childIter = createIterator( fam->children );
-                void* childElem;
-                int index2 = 0;
-                while ((childElem = nextElement( &childIter )) != NULL) {
-                    index2++;
-                }
-                if (index2 < getLength( fam->children ) - 1) {
-                    // NULL pointer encountered before end of list
-                    return INV_RECORD;
-                }
-            }
-            if (index1 < getLength( indiv->families ) - 1) {
-                // NULL pointer encountered before end of list
-                return INV_RECORD;
-            }
-        }
-        if (index < getLength( obj->individuals ) - 1) {
-            // NULL pointer encountered before end of list
-            return INV_RECORD;
-        }
-    }
-
-    // INV_RECORD - NULL pointer in family list
-    if (getLength( obj->families ) != 0) {
-        // foreach fam in obj->fams
-        ListIterator iter = createIterator( obj->families );
-        void* elem;
-        int famIndex = 0;
-        while ((elem = nextElement( &iter )) != NULL) {
-            famIndex++;
-            Family* fam = (Family*)elem;
-            if (fam->husband == NULL || fam->wife == NULL) {
-                return INV_RECORD;
-            }
-            if (getLength( fam->children ) != 0) {
-                ListIterator indivIter = createIterator( fam->children );
-                void* elem;
-                int indivIndex = 0;
-                while ((elem = nextElement( &indivIter )) != NULL) {
-                    indivIndex++;
-                }
-                if (indivIndex < getLength( fam->children ) - 1) {
-                    // NULL pointer encountered before end of list
-                    return INV_RECORD;
-                }
-            }
-        }
-        if (famIndex <= getLength( obj->families ) - 1) {
-            // NULL pointer encountered before end of list
-            return INV_RECORD;
-        }
-    }
-    return OK;
-}
-
-GEDCOMerror writeGEDCOM( char* filename, const GEDCOMobject* obj ) {
-    // Sanity checks
-    if (obj == NULL || filename == NULL || strlen( filename ) == 0) {
-        return createError( WRITE_ERROR, -1 );
-    }
-    FILE* stream = fopen( filename, "w" );
-    if (stream == NULL) {
-        return createError( WRITE_ERROR, -1 );
-    }
-
-    // Write GEDCOMobject components
-    if (writeHeader( obj->header, stream ) == false) {
-        fclose( stream );
-        return createError( WRITE_ERROR, -1 );
-    }
-    if (writeSubmitter( obj->submitter, stream ) == false) {
-        fclose( stream );
-        return createError( WRITE_ERROR, -1 );
-    }
-    refCount = famCount = 0;
-    ListIterator iter = createIterator( obj->families );
-    void* data;
-    while ((data = nextElement( &iter )) != NULL) { // add families to tracking array
-        famArray = realloc( famArray, sizeof( FamPtrPair*) * (famCount + 1) );
-        famArray[famCount] = calloc( sizeof( FamPtrPair ), 1 );
-        Family* fam = (Family*)data;
-        char temp[10];
-        sprintf( temp, "@F00%d@", famCount + 1 );
-        famArray[famCount]->extRefID = calloc( sizeof( char ), (strlen( temp ) + 1) );
-        strcpy( famArray[famCount]->extRefID, temp );
-        famArray[famCount]->fam = fam;
-        famCount++;
-    }
-    if (getLength( obj->individuals ) != 0) { // write individuals
-        ListIterator iter = createIterator( obj->individuals );
-        void* elem;
-        int recordNumber = 1;
-        while ((elem = nextElement( &iter )) != NULL) {
-            Individual* indi = (Individual*)elem;
-            addReferencePairToArray( indi, recordNumber );
-            if (writeIndividual( indi, stream, recordNumber++ ) == false) {
-                fclose( stream );
-                return createError( WRITE_ERROR, -1 );
-            }
-        }
-    }
-
-    if (getLength( obj->families ) != 0) {
-        ListIterator iter = createIterator( obj->families );
-        void* elem;
-        while ((elem = nextElement( &iter )) != NULL) {
-            Family* fam = (Family*)elem;
-            if (writeFamily( fam, stream ) == false) {
-                fclose( stream );
-                return createError( WRITE_ERROR, -1 );
-            }
-        }
-    }
-    fprintf( stream, "0 TRLR\n" );
-    fclose( stream );
-    for (int i = 0; i < refCount; i++) {
-        free( referenceArray[i]->extRefID );
-        free( referenceArray[i] );
-    }
-    for (int i = 0; i < famCount; i++) {
-        free( famArray[i]->extRefID );
-        free( famArray[i] );
-    }
-    free( famArray );
-    free( referenceArray );
-    referenceArray = NULL;
-    refCount = 0;
-    return createError( OK, -1 );
-}
-
-char* indToJSON(const Individual* ind) {
-    char* str = calloc( sizeof( char ), 1 );
-    strcpy( str, "" );
-    if (ind == NULL) {
-        return str;
-    }
-    str = realloc( str, sizeof( char ) * (strlen( str ) + strlen( "{\"givenName\":\"" ) + 1) );
-    strcat( str, "{\"givenName\":\"" );
-    if (ind->givenName != NULL) {
-        str = realloc( str, sizeof( char ) * (strlen( str ) + strlen( ind->givenName ) + 1) );
-        strcat( str, ind->givenName );
-    }
-    str = realloc( str, sizeof( char ) * (strlen( str ) + strlen( "\"," ) + 1) );
-    strcat( str, "\"," );
-    str = realloc( str, sizeof( char ) * (strlen( str ) + strlen( "\"surname\":\"" ) + 1) );
-    strcat( str, "\"surname\":\"" );
-    if (ind->surname != NULL) {
-        str = realloc( str, sizeof( char ) * (strlen( str ) + strlen( ind->surname ) + 1) );
-        strcat( str, ind->surname );
-    }
-    str = realloc( str, sizeof( char ) * (strlen( str ) + strlen( "\"}" ) + 1) );
-    strcat( str, "\"}" );
-    return str;
-}
-
-Individual* JSONtoInd(const char* str) {
-    if (str == NULL) {
-        return NULL;
-    }
-
-    char* string = calloc( sizeof( char ), strlen( str ) + 1 );
-    strcpy( string, str );
-
-    for (int i = 0; i < strlen( string ); i++) {
-        if (i < strlen( string ) - 1) {
-            if (string[i] == '\"' && string[i + 1] == '\"') {
-                char insert = '|';
-                insertChar( &string, insert, i + 1 );
-            }
-        }
-    }
-
-    Individual* indiv = calloc( sizeof( Individual ), 1 );
-    char* token = strtok( string, "\"" ); // should give <{> (1)
-    if (token == NULL) {
-        free( indiv );
-        free( string );
-        return NULL;
-    }
-    for (int i = 0; i < 8; i++) {
-        token = strtok( NULL, "\"" );
-        if (token == NULL) {
-            free( string );
-            free( indiv );
-            return NULL;
-        }
-        if (i == 2) { // index of given name field
-            if (strcmp( token, "|" ) == 0) { // placeholder inserted in case of empty name
-                token[0] = '\0';
-            }
-            indiv->givenName = calloc( sizeof( char ), (strlen( token ) + 1) );
-            strcpy( indiv->givenName, token );
-        }
-        if (i == 6) { // index of surname field
-            if (strcmp( token, "|" ) == 0) { // placeholder inserted in case of empty name
-                token[0] = '\0';
-            }
-            indiv->surname = calloc( sizeof( char ), (strlen( token ) + 1) );
-            strcpy( indiv->surname, token );
-        }
-    }
-
-    indiv->families = initializeList( &printFamily, &deleteFamily, &compareFamilies );
-    indiv->events = initializeList( &printEvent, &deleteEvent, &compareEvents );
-    indiv->otherFields = initializeList( &printField, &deleteField, &compareFields );
-    free( string );
-    return indiv;
-}
-
-GEDCOMobject* JSONtoGEDCOM(const char* str) {
-    if (str == NULL) {
-        return NULL;
-    }
-
-    char* string = calloc( sizeof( char ), strlen( str ) + 1 );
-    strcpy( string, str );
-
-    for (int i = 0; i < strlen( string ); i++) {
-        if (i < strlen( string ) - 1) {
-            if (string[i] == '\"' && string[i + 1] == '\"') {
-                char insert = '|';
-                insertChar( &string, insert, i + 1 );
-            }
-        }
-    }
-
-    GEDCOMobject* obj = calloc( sizeof( GEDCOMobject ), 1 );
-    char* token = strtok( string, "\"" ); // should give <{>
-    if (token == NULL) {
-        free( string );
-        free( obj );
-        return NULL;
-    }
-
-    Header* head = calloc( sizeof( Header ), 1 );
-    Submitter* sub = NULL;
-    sub = calloc( sizeof( Submitter ) + (sizeof( char ) * 100), 1 );
-    for (int i = 0; i < 20; i++) {
-        token = strtok( NULL, "\"" );
-        if (token == NULL) {
-            free( string );
-            free( obj );
-            return NULL;
-        }
-        switch (i) {
-            if (strcmp( token, "|" ) == 0) { // placeholder inserted in case of empty name
-                token[0] = '\0';
-            }
-            case 2:
-                strcpy( head->source, token );
-                break;
-            case 6:
-                head->gedcVersion = atof( token );
-                break;
-            case 10:
-                head->encoding = getCharSetFromString( token );
-                break;
-            case 14:
-                strncpy( sub->submitterName, token, 60 );
-                if (strlen( token ) < 61) {
-                    sub->submitterName[strlen( token )] = '\0';
-                } else {
-                    sub->submitterName[60] = '\0';
-                }
-                break;
-            case 18:
-                strcpy( sub->address, token );
-                break;
-            default:
-                break;
-        }
-    }
-    free( string );
-    obj->header = head;
-    obj->submitter = sub;
-    obj->header->submitter = sub;
-    return obj;
-}
-
-void addIndividual(GEDCOMobject* obj, const Individual* toBeAdded);
-
-char* iListToJSON(List iList);
-
-char* gListToJSON(List gList);
+*/
+// ErrorCode validateGEDCOM( const GEDCOMobject* obj ) {
+//     // INV_GEDCOM cases
+//     if (obj->header == NULL || obj->submitter == NULL) {
+//         return INV_GEDCOM;
+//     }
+//
+//     // INV_HEADER cases
+//     Header* head = obj->header;
+//     if (strlen( head->source ) == 0 || head->submitter == NULL) {
+//         return INV_HEADER;
+//     }
+//
+//     // INV_RECORD cases
+//     Submitter* sub = obj->submitter;
+//     if (sub->submitterName != NULL && strlen( sub->submitterName ) > 0) {
+//         // do nothing all is good
+//     } else {
+//         printf( "inv_sub\n" );
+//         return INV_RECORD;
+//     }
+//     /* TODO
+//         - check for fields that are too long (i.e. tag > 31, lineValue > 200, etc)
+//     */
+//
+//     // INV_RECORD - NULL pointer in individual list
+//     if (getLength( obj->individuals ) != 0) {
+//         // foreach indiv in obj->indivs
+//         ListIterator iter = createIterator( obj->individuals );
+//         void* elem;
+//         int index = 0;
+//         while ((elem = nextElement( &iter )) != NULL) {
+//             index++;
+//             Individual* indiv = (Individual*)elem;
+//             // verify line lengths ???
+//
+//             // foreach fam in indiv->families
+//             ListIterator famIter = createIterator( indiv->families );
+//             void* famElem;
+//             int index1 = 0;
+//             while ((famElem = nextElement( &famIter )) != NULL) {
+//                 index1++;
+//                 Family* fam = (Family*)famElem;
+//                 /*if (fam->husband == NULL || fam->wife == NULL) {
+//                     printf( "husb or wife NULL\n" );
+//                     return INV_RECORD;
+//                 }*/
+//                 // foreach child in fam->children
+//                 ListIterator childIter = createIterator( fam->children );
+//                 void* childElem;
+//                 int index2 = 0;
+//                 while ((childElem = nextElement( &childIter )) != NULL) {
+//                     index2++;
+//                 }
+//                 if (index2 < getLength( fam->children ) - 1) {
+//                     // NULL pointer encountered before end of list
+//                     printf( "NULL ptr in fam->children\n" );
+//                     return INV_RECORD;
+//                 }
+//             }
+//             if (index1 < getLength( indiv->families ) - 1) {
+//                 // NULL pointer encountered before end of list
+//                 return INV_RECORD;
+//             }
+//         }
+//         if (index < getLength( obj->individuals ) - 1) {
+//             // NULL pointer encountered before end of list
+//             return INV_RECORD;
+//         }
+//     }
+//
+//     // INV_RECORD - NULL pointer in family list
+//     if (getLength( obj->families ) > 0) {
+//         // foreach fam in obj->fams
+//         ListIterator iter = createIterator( obj->families );
+//         void* elem;
+//         int famIndex = 0;
+//         while ((elem = nextElement( &iter )) != NULL) {
+//             famIndex++;
+//             Family* fam = (Family*)elem;
+//             /*if (fam->husband == NULL || fam->wife == NULL) {
+//                 return INV_RECORD;
+//             }*/
+//             if (getLength( fam->children ) != 0) {
+//                 ListIterator indivIter = createIterator( fam->children );
+//                 void* elem;
+//                 int indivIndex = 0;
+//                 while ((elem = nextElement( &indivIter )) != NULL) {
+//                     indivIndex++;
+//                 }
+//                 if (indivIndex < getLength( fam->children ) - 1) {
+//                     // NULL pointer encountered before end of list
+//                     return INV_RECORD;
+//                 }
+//             }
+//         }
+//         if (famIndex < getLength( obj->families ) - 1) {
+//             // NULL pointer encountered before end of list
+//             return INV_RECORD;
+//         }
+//     }
+//     return OK;
+// }
+//
+// GEDCOMerror writeGEDCOM( char* filename, const GEDCOMobject* obj ) {
+//     // Sanity checks
+//     if (obj == NULL || filename == NULL || strlen( filename ) == 0) {
+//         return createError( WRITE_ERROR, -1 );
+//     }
+//     FILE* stream = fopen( filename, "w" );
+//     if (stream == NULL) {
+//         return createError( WRITE_ERROR, -1 );
+//     }
+//
+//     // Write GEDCOMobject components
+//     if (writeHeader( obj->header, stream ) == false) {
+//         fclose( stream );
+//         return createError( WRITE_ERROR, -1 );
+//     }
+//     if (writeSubmitter( obj->submitter, stream ) == false) {
+//         fclose( stream );
+//         return createError( WRITE_ERROR, -1 );
+//     }
+//     refCount = famCount = 0;
+//     ListIterator iter = createIterator( obj->families );
+//     void* data;
+//     while ((data = nextElement( &iter )) != NULL) { // add families to tracking array
+//         famArray = realloc( famArray, sizeof( FamPtrPair*) * (famCount + 1) );
+//         famArray[famCount] = calloc( sizeof( FamPtrPair ), 1 );
+//         Family* fam = (Family*)data;
+//         char temp[10];
+//         sprintf( temp, "@F00%d@", famCount + 1 );
+//         famArray[famCount]->extRefID = calloc( sizeof( char ), (strlen( temp ) + 1) );
+//         strcpy( famArray[famCount]->extRefID, temp );
+//         famArray[famCount]->fam = fam;
+//         famCount++;
+//     }
+//     if (getLength( obj->individuals ) != 0) { // write individuals
+//         ListIterator iter = createIterator( obj->individuals );
+//         void* elem;
+//         int recordNumber = 1;
+//         while ((elem = nextElement( &iter )) != NULL) {
+//             Individual* indi = (Individual*)elem;
+//             addReferencePairToArray( indi, recordNumber );
+//             if (writeIndividual( indi, stream, recordNumber++ ) == false) {
+//                 fclose( stream );
+//                 return createError( WRITE_ERROR, -1 );
+//             }
+//         }
+//     }
+//
+//     if (getLength( obj->families ) != 0) {
+//         ListIterator iter = createIterator( obj->families );
+//         void* elem;
+//         while ((elem = nextElement( &iter )) != NULL) {
+//             Family* fam = (Family*)elem;
+//             if (writeFamily( fam, stream ) == false) {
+//                 fclose( stream );
+//                 return createError( WRITE_ERROR, -1 );
+//             }
+//         }
+//     }
+//     fprintf( stream, "0 TRLR\n" );
+//     fclose( stream );
+//     for (int i = 0; i < refCount; i++) {
+//         free( referenceArray[i]->extRefID );
+//         free( referenceArray[i] );
+//     }
+//     for (int i = 0; i < famCount; i++) {
+//         free( famArray[i]->extRefID );
+//         free( famArray[i] );
+//     }
+//     free( famArray );
+//     free( referenceArray );
+//     referenceArray = NULL;
+//     refCount = 0;
+//     return createError( OK, -1 );
+// }
+//
+// char* indToJSON(const Individual* ind) {
+//     char* str = calloc( sizeof( char ), 1 );
+//     strcpy( str, "" );
+//     if (ind == NULL) {
+//         return str;
+//     }
+//     str = realloc( str, sizeof( char ) * (strlen( str ) + strlen( "{\"givenName\":\"" ) + 1) );
+//     strcat( str, "{\"givenName\":\"" );
+//     if (ind->givenName != NULL) {
+//         str = realloc( str, sizeof( char ) * (strlen( str ) + strlen( ind->givenName ) + 1) );
+//         strcat( str, ind->givenName );
+//     }
+//     str = realloc( str, sizeof( char ) * (strlen( str ) + strlen( "\"," ) + 1) );
+//     strcat( str, "\"," );
+//     str = realloc( str, sizeof( char ) * (strlen( str ) + strlen( "\"surname\":\"" ) + 1) );
+//     strcat( str, "\"surname\":\"" );
+//     if (ind->surname != NULL) {
+//         str = realloc( str, sizeof( char ) * (strlen( str ) + strlen( ind->surname ) + 1) );
+//         strcat( str, ind->surname );
+//     }
+//     str = realloc( str, sizeof( char ) * (strlen( str ) + strlen( "\"}" ) + 1) );
+//     strcat( str, "\"}" );
+//     return str;
+// }
+//
+// Individual* JSONtoInd(const char* str) {
+//     if (str == NULL) {
+//         return NULL;
+//     }
+//
+//     char* string = calloc( sizeof( char ), strlen( str ) + 1 );
+//     strcpy( string, str );
+//
+//     for (int i = 0; i < strlen( string ); i++) {
+//         if (i < strlen( string ) - 1) {
+//             if (string[i] == '\"' && string[i + 1] == '\"') {
+//                 char insert = '|';
+//                 insertChar( &string, insert, i + 1 );
+//             }
+//         }
+//     }
+//
+//     Individual* indiv = calloc( sizeof( Individual ), 1 );
+//     char* token = strtok( string, "\"" ); // should give <{> (1)
+//     if (token == NULL) {
+//         free( indiv );
+//         free( string );
+//         return NULL;
+//     }
+//     for (int i = 0; i < 8; i++) {
+//         token = strtok( NULL, "\"" );
+//         if (token == NULL) {
+//             free( string );
+//             free( indiv );
+//             return NULL;
+//         }
+//         if (i == 2) { // index of given name field
+//             if (strcmp( token, "|" ) == 0) { // placeholder inserted in case of empty name
+//                 token[0] = '\0';
+//             }
+//             indiv->givenName = calloc( sizeof( char ), (strlen( token ) + 1) );
+//             strcpy( indiv->givenName, token );
+//         }
+//         if (i == 6) { // index of surname field
+//             if (strcmp( token, "|" ) == 0) { // placeholder inserted in case of empty name
+//                 token[0] = '\0';
+//             }
+//             indiv->surname = calloc( sizeof( char ), (strlen( token ) + 1) );
+//             strcpy( indiv->surname, token );
+//         }
+//     }
+//
+//     indiv->families = initializeList( &printFamily, &deleteFamily, &compareFamilies );
+//     indiv->events = initializeList( &printEvent, &deleteEvent, &compareEvents );
+//     indiv->otherFields = initializeList( &printField, &deleteField, &compareFields );
+//     free( string );
+//     return indiv;
+// }
+//
+// GEDCOMobject* JSONtoGEDCOM(const char* str) {
+//     if (str == NULL) {
+//         return NULL;
+//     }
+//
+//     char* string = calloc( sizeof( char ), strlen( str ) + 1 );
+//     strcpy( string, str );
+//
+//     for (int i = 0; i < strlen( string ); i++) {
+//         if (i < strlen( string ) - 1) {
+//             if (string[i] == '\"' && string[i + 1] == '\"') {
+//                 char insert = '|';
+//                 insertChar( &string, insert, i + 1 );
+//             }
+//         }
+//     }
+//
+//     GEDCOMobject* obj = calloc( sizeof( GEDCOMobject ), 1 );
+//     char* token = strtok( string, "\"" ); // should give <{>
+//     if (token == NULL) {
+//         free( string );
+//         free( obj );
+//         return NULL;
+//     }
+//
+//     Header* head = calloc( sizeof( Header ), 1 );
+//     Submitter* sub = NULL;
+//     sub = calloc( sizeof( Submitter ) + (sizeof( char ) * 100), 1 );
+//     for (int i = 0; i < 20; i++) {
+//         token = strtok( NULL, "\"" );
+//         if (token == NULL) {
+//             free( string );
+//             free( obj );
+//             return NULL;
+//         }
+//         switch (i) {
+//             if (strcmp( token, "|" ) == 0) { // placeholder inserted in case of empty name
+//                 token[0] = '\0';
+//             }
+//             case 2:
+//                 strcpy( head->source, token );
+//                 break;
+//             case 6:
+//                 head->gedcVersion = atof( token );
+//                 break;
+//             case 10:
+//                 head->encoding = getCharSetFromString( token );
+//                 break;
+//             case 14:
+//                 strncpy( sub->submitterName, token, 60 );
+//                 if (strlen( token ) < 61) {
+//                     sub->submitterName[strlen( token )] = '\0';
+//                 } else {
+//                     sub->submitterName[60] = '\0';
+//                 }
+//                 break;
+//             case 18:
+//                 strcpy( sub->address, token );
+//                 break;
+//             default:
+//                 break;
+//         }
+//     }
+//     free( string );
+//     obj->header = head;
+//     obj->submitter = sub;
+//     obj->header->submitter = sub;
+//     return obj;
+// }
+//
+// void addIndividual(GEDCOMobject* obj, const Individual* toBeAdded) {
+//     if (obj == NULL || toBeAdded == NULL) {
+//         return;
+//     }
+//
+//     insertSorted( &obj->individuals, (void*)toBeAdded );
+// }
+//
+// char* iListToJSON(List iList) {
+//     char* string = calloc( sizeof( char ), 3 );
+//
+//     if (getLength( iList ) == 0) {
+//         strcpy( string, "[]" );
+//         return string;
+//     }
+//     string[0] = '[';
+//     ListIterator iter = createIterator( iList );
+//     void* elem;
+//     while ((elem = nextElement( &iter )) != NULL) {
+//         Individual* indiv = (Individual*)elem;
+//         char* temp = indToJSON( indiv );
+//         string = realloc( string, sizeof( char ) * (strlen( string ) + strlen( temp ) + 3) );
+//         strcat( string, temp );
+//         strcat( string, "," );
+//         free( temp );
+//     }
+//     string[strlen( string ) - 1] = ']'; // replaces the comma after last value with ']'
+//     return string;
+// }
+//
+// char* gListToJSON(List gList) {
+//     char* string = calloc( sizeof( char ), 3 );
+//
+//     if (getLength( gList ) == 0) {
+//         strcpy( string, "[]" );
+//         return string;
+//     }
+//     string[0] = '[';
+//     ListIterator iter = createIterator( gList );
+//     void* elem;
+//     while ((elem = nextElement( &iter )) != NULL) {
+//         List list = *((List*)elem);
+//         char* temp = iListToJSON( list );
+//         string = realloc( string, sizeof( char ) * (strlen( string ) + strlen( temp ) + 4) );
+//         strcat( string, temp );
+//         strcat( string, "," );
+//         free( temp );
+//     }
+//     string[strlen( string ) - 1] = ']'; // replaces comma afer last value with ']'
+//     return string;
+// }
 
 
 //****************************************** List helper functions *******************************************
@@ -1025,7 +1073,47 @@ int compareIndividuals(const void* first,const void* second) {
     } else if (compareVal < 0) {
         return -1;
     } else {
-        return 0;
+        // compare birth dates
+        char* birth1 = NULL;
+        char* birth2 = NULL;
+        if (getLength( indiv1.events ) > 0 ) {
+            ListIterator iter = createIterator( indiv1.events );
+            void* elem;
+            while ((elem = nextElement( &iter )) != NULL) {
+                Event* event = (Event*)elem;
+                if (strcmp( event->type, "BIRT" ) == 0) {
+                    birth1 = event->date;
+                    break;
+                }
+            }
+        }
+        if (getLength( indiv2.events ) > 0 ) {
+            ListIterator iter = createIterator( indiv2.events );
+            void* elem;
+            while ((elem = nextElement( &iter )) != NULL) {
+                Event* event = (Event*)elem;
+                if (strcmp( event->type, "BIRT" ) == 0) {
+                    birth2 = event->date;
+                    break;
+                }
+            }
+        }
+        if (birth1 != NULL && birth2 == NULL) {
+            return 1;
+        } else if (birth1 == NULL && birth2 != NULL) {
+            return -1;
+        } else if (birth1 != NULL && birth2 != NULL) {
+            int compVal = strcmp( birth1, birth2 );
+            if (compVal > 0) {
+                return 1;
+            } else if (compVal < 0) {
+                return -1;
+            } else {
+                return 0;
+            }
+        } else {
+            return 0;
+        }
     }
 }
 char* printIndividual( void* toBePrinted ) {
@@ -1060,9 +1148,11 @@ char* printIndividual( void* toBePrinted ) {
         void* elem;
         while ((elem = nextElement( &iter )) != NULL) {
             char* temp = printField( elem );
-            string = realloc( string, sizeof( char ) * (strlen( string ) + strlen( temp ) + 3) );
-            strcat( string, temp );
-            free( temp );
+            if (temp) {
+                string = realloc( string, sizeof( char ) * (strlen( string ) + strlen( temp ) + 3) );
+                strcat( string, temp );
+                free( temp );
+            }
         }
     }
     return string;
