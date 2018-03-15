@@ -309,6 +309,11 @@ void insertChar( char** str, char insert, int pos );
 bool isValidHeadTag( char* tag );
 
 /**
+ * 
+ */
+bool isChild( Family* fam, const Individual* person );
+
+/**
  * Determines if a given Individual is a parent in a given family
  *
  * @param fam The family to be tested

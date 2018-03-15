@@ -1,0 +1,62 @@
+Inserting ming before zappa
+Last test completed
+
+************** Testing Report ********************
+
+[32mTest 1: List Initialization Test: PASSED 3/3 tests
+[0m    [32mSUCCESS: Subtest 1.1: head and tail both NULL[0m
+    [32mSUCCESS: Subtest 1.2: emply list has length 0[0m
+    [32mSUCCESS: Subtest 1.3: Function pointers are correctly assigned.[0m
+
+[32mTest 2: Node Initialization Test: PASSED 2/2 tests
+[0m    [32mSUCCESS: Subtest 2.1: initializeNode() was not null.[0m
+    [32mSUCCESS: Subtest 2.2: Node has correct data.[0m
+
+[32mTest 3: List Initialization Test: PASSED 1/1 tests
+[0m    [32mSUCCESS: Subtest 3.1: getLength returns length corectly.[0m
+
+[32mTest 4: insertFront() and insertBack() test: PASSED 8/8 tests
+[0m    [32mSUCCESS: Subtest 4.1: correctly inserted front on empty list.[0m
+    [32mSUCCESS: Subtest 4.2: list length correctly updated on insert into empty list.[0m
+    [32mSUCCESS: Subtest 4.3: correctly inserted front on populated list.[0m
+    [32mSUCCESS: Subtest 4.4: list length correctly updated on insert into populated list.[0m
+    [32mSUCCESS: Subtest 4.5: correctly inserted back on empty list.[0m
+    [32mSUCCESS: Subtest 4.6: correctly inserted back on populated list.[0m
+    [32mSUCCESS: Subtest 4.7: insertBack handled NULL list.[0m
+    [32mSUCCESS: Subtest 4.8: insertFront handled NULL list.[0m
+
+[32mTest 5: getFront() and getBack() test: PASSED 4/4 tests
+[0m    [32mSUCCESS: Subtest 5.1: correctly retrieved data from populated list.[0m
+    [32mSUCCESS: Subtest 5.2: correctly retrieved data from populated list.[0m
+    [32mSUCCESS: Subtest 5.3: getFront correctly handled empty list.[0m
+    [32mSUCCESS: Subtest 5.4: getBack correctly handled empty list.[0m
+
+[32mTest 6: insertSorted() test: PASSED 5/5 tests
+[0m    [32mSUCCESS: Subtest 6.1: inserted to middle of sorted list.[0m
+    [32mSUCCESS: Subtest 6.2: inserted to back of sorted list.[0m
+    [32mSUCCESS: Subtest 6.3: inserted to front of sorted list.[0m
+    [32mSUCCESS: Subtest 6.4: inserted single element to sorted list.[0m
+    [32mSUCCESS: Subtest 6.5: insertSorted handled NULL list.[0m
+
+[32mTest 7: insertSorted() test: PASSED 9/9 tests
+[0m    [32mSUCCESS: Subtest 7.1: correctly retrieved data from the front of a populated list.[0m
+    [32mSUCCESS: Subtest 7.2: correctly retrieved data from the back of a populated list.[0m
+    [32mSUCCESS: Subtest 7.3: correctly retrieved data from the middle of a populated list.[0m
+    [32mSUCCESS: Subtest 7.4: correctly handled invalid data.[0m
+    [32mSUCCESS: Subtest 7.5: correctly handled NULL parameter.[0m
+    [32mSUCCESS: Subtest 7.6: clearList functioned correctly.[0m
+    [32mSUCCESS: Subtest 7.7: correctly handled empty list.[0m
+    [32mSUCCESS: Subtest 7.8: correctly handled NULL list.[0m
+    [32mSUCCESS: Subtest 7.9: list length correctly updated on deletion from list.[0m
+
+[32mTest 8: print test: PASSED 2/2 tests
+[0m    [32mSUCCESS: Subtest 8.1: List printed forwards in correct order.[0m
+    [32mSUCCESS: Subtest 8.2: Empty list handled correctly.[0m
+
+[31mTest 9: insertFront() and insertBack() test: FAILED 3/5 tests
+[0m    [32mSUCCESS: Subtest 9.1: searching empty list correctly returns NULL.[0m
+    [31mFAIL: Test 9.2 encountered a segmentation fault and crashed[0m
+    [31mFAIL: Test 9.3 encountered a segmentation fault and crashed[0m
+    [31mFAIL: Test 9.4 encountered a segmentation fault and crashed[0m
+    [32mSUCCESS: Subtest 9.5: correctly returned NULL after searching for non-existent element in the list.[0m
+Score: 8

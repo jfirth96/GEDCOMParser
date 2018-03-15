@@ -519,12 +519,17 @@ void combineLists( List* toKeep, List* toDestroy, int destroy ) {
     if (getLength( *toDestroy ) < 0) {
         return;
     }
+    
     Node* p1 = toDestroy->head;
     while (p1 != NULL) {
-        void* data = findElement( *toKeep, &surnamePredicate, p1->data );
-        if (data == NULL) { // element does not exist in list yet
-            insertSorted( toKeep, p1->data );
-        }
+		if (getLength( *toKeep ) != 0) {
+	        void* data = findElement( *toKeep, &surnamePredicate, p1->data );
+	        if (data == NULL) { // element does not exist in list yet
+	            insertSorted( toKeep, p1->data );
+	        }
+	    } else {
+			insertSorted( toKeep, p1->data );
+		}
         p1 = p1->next;
     }
     if (destroy) {
@@ -751,7 +756,7 @@ RelationType getFamilyRelation( Family* fam, Individual* indi ) {
 CharSet getCharSetFromString( char* string ) {
     if (strcmp( string, "ANSEL") == 0) {
         return ANSEL;
-    } else if (strcmp( string, "UTF-8") == 0) {
+    } else if (strcmp( string, "UTF-8") == 0 || strcmp( string, "UTF8" ) == 0) {
         return UTF8;
     } else if (strcmp( string, "UNICODE") == 0) {
         return UNICODE;
@@ -791,18 +796,18 @@ List getChildren( Individual* indiv ) {
 }
 
 List getParents( Individual* indiv ) {
-    List parents = initializeList( &printIndividual, &dummyDelete, &mySurnameCompare );
+    List parents = initializeList( &printIndividualNames, &dummyDelete, &mySurnameCompare );
     if (indiv == NULL) {
         return parents;
     }
-    if (getLength( indiv->families ) != 0) {
+    if (getLength( indiv->families ) > 0) {
         ListIterator iter = createIterator( indiv->families );
         void* data;
         // for each family
         while ((data = nextElement( &iter )) != NULL) {
             Family* fam = (Family*)data;
             // that indiv is NOT a parent of
-            if (!isParent( fam, indiv )) {
+            if (isChild( fam, indiv )) {
                 // add parents to list
                 if (fam->husband != NULL) {
                     insertSorted( &parents, (void*)fam->husband );
@@ -1002,6 +1007,23 @@ bool isFamEvent( char* tag ) {
     }
 }
 
+bool isChild( Family* fam, const Individual* person ) {
+	if (fam == NULL || person == NULL) {
+        return false;
+    }
+    
+    if (getLength( fam->children ) > 0) {
+		ListIterator iter = createIterator( fam->children );
+		void *data;
+		while ((data = nextElement( &iter )) != NULL) {
+			if (compareIndividuals( person, data ) == 0) {
+				return true;
+			}
+		}
+	}
+	return false;
+}
+
 bool isParent( Family* fam, const Individual* person ) {
     if (fam == NULL || person == NULL) {
         return false;
@@ -1044,14 +1066,61 @@ int mySurnameCompare( const void* first, const void* second ) {
 
     int compVal = strcmp( one->surname, two->surname );
     if (compVal == 0) {
-        int compVal2 = strcmp( one->givenName, two->givenName );
-        if (compVal2 > 0) {
-            return 1;
-        } else if (compVal2 < 0) {
-            return -1;
-        } else {
-            return 0;
-        }
+		if (strlen( one->givenName ) == 0 && strlen( two->givenName ) != 0) {
+			return 1;
+		} else if (strlen( one->givenName ) != 0 && strlen( two->givenName ) == 0) {
+			return -1;
+		} else {
+			int compVal2 = strcmp( one->givenName, two->givenName );
+			if (compVal2 > 0) {
+				return 1;
+			} else if (compVal2 < 0) {
+				return -1;
+			} else {
+				// compare birth dates
+		        char* birth1 = NULL;
+		        char* birth2 = NULL;
+		        if (getLength( one->events ) > 0 ) {
+		            ListIterator iter = createIterator( one->events );
+		            void* elem;
+		            while ((elem = nextElement( &iter )) != NULL) {
+		                Event* event = (Event*)elem;
+		                if (strcmp( event->type, "BIRT" ) == 0) {
+		                    birth1 = event->date;
+		                    break;
+		                }
+		            }
+		        }
+		        if (getLength( two->events ) > 0 ) {
+		            ListIterator iter = createIterator( two->events );
+		            void* elem;
+		            while ((elem = nextElement( &iter )) != NULL) {
+		                Event* event = (Event*)elem;
+		                if (strcmp( event->type, "BIRT" ) == 0) {
+		                    birth2 = event->date;
+		                    break;
+		                }
+		            }
+		        }
+		        if (birth1 != NULL && birth2 == NULL) {
+		            return 1;
+		        } else if (birth1 == NULL && birth2 != NULL) {
+		            return -1;
+		        } else if (birth1 != NULL && birth2 != NULL) {
+		            int compVal = strcmp( birth1, birth2 );
+		            //printf( "b1: %s vs b2: %s\n", birth1, birth2 );
+		            if (compVal > 0) {
+		                return 1;
+		            } else if (compVal < 0) {
+		                return -1;
+		            } else {
+		                return 0;
+		            }
+		        } else {
+		            return 0;
+		        }
+			}
+		}
     } else if (compVal > 0) {
         return 1;
     } else {
@@ -1181,7 +1250,7 @@ char* printGEDCOMline( GEDCOMline* line ) {
 
 char* printHeader( Header* head ) {
     if (head == NULL) {
-        printf( "null\n" );
+        //printf( "null\n" );
         return NULL;
     }
     char* string = NULL;
@@ -1303,7 +1372,14 @@ bool surnamePredicate( const void* first, const void* second ) {
     Individual* one = (Individual*)first;
     Individual* two = (Individual*)second;
 
-    if (one->surname != NULL) {
+	char *a = printIndividual( one );
+	char *b = printIndividual( two );
+	if (strcmp( a, b ) == 0) {
+		return true;
+	} else {
+		return false;
+	}
+    /*if (one->surname != NULL) {
         if (two->surname != NULL) {
             int comp = strcmp( one->surname, two->surname );
             if (comp != 0) {
@@ -1329,7 +1405,7 @@ bool surnamePredicate( const void* first, const void* second ) {
         }
     } else {
         return false;
-    }
+    }*/
 }
 
 bool writeEvent( Event* event, FILE* stream ) {
@@ -1363,13 +1439,14 @@ bool writeHeader( Header* head, FILE* stream ) {
     if (head == NULL) {
         return false;
     }
-
     fprintf( stream, "0 HEAD\n" );
     fprintf( stream, "1 SOUR %s\n", head->source );
     fprintf( stream, "1 GEDC\n" );
     fprintf( stream, "2 VERS %.1f\n", head->gedcVersion );
     fprintf( stream, "2 FORM LINEAGE-LINKED\n" );
-    fprintf( stream, "1 CHAR ASCII\n" );
+    char *s = getStringFromCharSet( head->encoding );
+    fprintf( stream, "1 CHAR %s\n", s );
+    free( s );
     fprintf( stream, "1 SUBM @S001@\n" );
     return true;
 }

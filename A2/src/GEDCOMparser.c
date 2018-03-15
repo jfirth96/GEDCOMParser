@@ -361,7 +361,7 @@ char* printError( GEDCOMerror err ) {
 }
 
 Individual* findPerson( const GEDCOMobject* familyRecord, bool (*compare)( const void* first, const void* second ), const void* person ) {
-    if (person == NULL) {
+    if (familyRecord == NULL || person == NULL) {
         return NULL;
     }
 
@@ -388,11 +388,11 @@ List getAncestorListN(const GEDCOMobject* familyRecord, const Individual* person
     List getParentsOf = initializeList( &printGenerationList, &dummyDelete, &mySurnameCompare );
 
     // Add given individual to list
-    insertBack( &getParentsOf, (void*)person );
+    insertSorted( &getParentsOf, (void*)person );
 
     // foreach generation ...
     for (int i = 0; i < maxGen; i++) {
-        List generation = initializeList( &printIndividualNames, &dummyDelete, &mySurnameCompare );
+        List generation = initializeList( &printGenerationList, &dummyDelete, &mySurnameCompare );
         // foreach person in getChildrenOf list
         ListIterator iter = createIterator( getParentsOf );
         void* elem;
@@ -407,12 +407,13 @@ List getAncestorListN(const GEDCOMobject* familyRecord, const Individual* person
         // put generation list into descendants list (required list pointer)
         List* ptr = calloc( sizeof( List ), 1 );
         ptr->deleteData = &dummyDelete;
-    	ptr->compare = &compareIndividuals;
+    	ptr->compare = &mySurnameCompare;
     	ptr->printData = &printGenerationList;
         combineLists( ptr, &generation, 0 );
         insertBack( &ancestors, (void*)(ptr) );
         // put current generation of individuals into getChildrenOf list
-        combineLists( &getParentsOf, &generation, 1 );
+        combineLists( &getParentsOf, &generation, 0 );
+        clearList( &generation );
     }
     if (getLength( getParentsOf ) != 0) {
         clearList( &getParentsOf );
@@ -438,17 +439,16 @@ List getAncestorListN(const GEDCOMobject* familyRecord, const Individual* person
 
             List* ptr = calloc( sizeof( List ), 1 );
             ptr->deleteData = &dummyDelete;
-            ptr->compare = &compareIndividuals;
+            ptr->compare = &mySurnameCompare;
             ptr->printData = &printGenerationList;
             combineLists( ptr, &generation, 0 );
             insertBack( &ancestors, (void*)(ptr) );
             // put current generation of individuals into getChildrenOf list
-            combineLists( &getParentsOf, &generation, 1 );
-            //clearList( &generation );
+            combineLists( &getParentsOf, &generation, 0 );
+            clearList( &generation );
         } while (1);
         clearList( &getParentsOf );
     }
-
     return ancestors;
 }
 
@@ -542,7 +542,7 @@ List getDescendantListN(const GEDCOMobject* familyRecord, const Individual* pers
 
 ErrorCode validateGEDCOM( const GEDCOMobject* obj ) {
     // INV_GEDCOM cases
-    if (obj->header == NULL || obj->submitter == NULL) {
+    if (obj == NULL || obj->header == NULL || obj->submitter == NULL) {
         return INV_GEDCOM;
     }
 
@@ -832,7 +832,7 @@ GEDCOMobject* JSONtoGEDCOM(const char* str) {
     strcpy( string, str );
 
     for (int i = 0; i < strlen( string ); i++) {
-        if (i < strlen( string ) - 1) {
+        if (i < strlen( string )) {
             if (string[i] == '\"' && string[i + 1] == '\"') {
                 char insert = '|';
                 insertChar( &string, insert, i + 1 );
@@ -858,10 +858,10 @@ GEDCOMobject* JSONtoGEDCOM(const char* str) {
             free( obj );
             return NULL;
         }
+        if (token[0] == '|') { // placeholder inserted in case of empty name
+			token[0] = '\0';
+        }
         switch (i) {
-            if (strcmp( token, "|" ) == 0) { // placeholder inserted in case of empty name
-                token[0] = '\0';
-            }
             case 2:
                 strcpy( head->source, token );
                 break;

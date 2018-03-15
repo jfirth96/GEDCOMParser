@@ -9,13 +9,13 @@ LIB = -L./bin
 
 TEST = $(BIN)test
 
-all: list parser test
+all: list parser
 
-test : test.o
-	$(CC) $(BIN)testMain.o $(LIB) $(LDFLAGS) -o $(TEST)
+#test : test.o
+#	$(CC) $(BIN)testMain.o $(LIB) $(LDFLAGS) -o $(TEST)
 
-test.o : $(SRC)testMain.c
-	$(CC) $(CFLAGS) -c $(SRC)testMain.c -o $(BIN)testMain.o
+#test.o : $(SRC)testMain.c
+#	$(CC) $(CFLAGS) -c $(SRC)testMain.c -o $(BIN)testMain.o
 
 list: LinkedList.o
 	ar cr $(BIN)liblist.a $(BIN)LinkedListAPI.o
@@ -32,11 +32,14 @@ GEDCOMutil : $(SRC)GEDCOMutilities.c $(INC)GEDCOMutilities.h
 LinkedList.o : $(SRC)LinkedListAPI.c $(INC)LinkedListAPI.h
 	$(CC) $(CFLAGS) -c $(SRC)LinkedListAPI.c -o $(BIN)LinkedListAPI.o
 
-run :
-	$(TEST)
+#TestUtil.o : $(SRC)GEDCOMTestUtilities.c $(INC)GEDCOMTestUtilities.h
+#	$(CC) $(CFLAGS) -c $(SRC)GEDCOMTestUtilities.c -o $(BIN)GEDCOMTestUtilities.o
 
-memCheck :
-	valgrind --leak-check=full --show-leak-kinds=all --track-origins=yes $(TEST)
+#run :
+#	$(TEST)
+
+#memCheck :
+#	valgrind --leak-check=full --show-leak-kinds=all --track-origins=yes $(TEST)
 
 clean :
 	rm $(BIN)*
