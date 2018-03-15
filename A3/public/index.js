@@ -10,7 +10,7 @@ $(document).ready(function() {
     $.ajax({
         type: 'get',            //Request type
         dataType: 'json',       //Data type - we will use JSON for almost everything 
-        url: '/someendpoint',   //The server endpoint we are connecting to
+        url: '/getFiles',   //The server endpoint we are connecting to
         success: function( data ) {
             /*  Do something with returned object
                 Note that what we get is an object, not a string, 
@@ -18,8 +18,17 @@ $(document).ready(function() {
                 JavaScript really does handle JSONs seamlessly
             */
 
-            //We write the object to the console to show that the request was successful
-            console.log( data ); 
+            for (var i in data) {
+                console.log( data[i] );
+                for (var j in data[i]) {
+                    var file = data[i][j];
+                    addToFileLists( file );
+                    dummyUpdateFileView( file );
+                    document.getElementById( "STATUS" ).value = "Uploaded " + file + " to server.\n" + document.getElementById( "STATUS" ).value;
+                    document.getElementById( "STATUS" ).value.replace( /\r?\n/g, '<br />' );
+                }
+                
+            }
         },
         fail: function( error ) {
             // Non-200 return, do something with error
@@ -80,7 +89,7 @@ function addToFileLists( file ) {
     option2.text = file;
     list1.add( option1 );
     list2.add( option2 );
-    console.log( "Added " + file + " to drop-down lists." );
+    //console.log( "Added " + file + " to drop-down lists." );
 }
 
 function addIndividual() {

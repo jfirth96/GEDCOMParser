@@ -51,7 +51,7 @@
             <br>
 
             <!-- Upload File to Server -->
-            <form id = "UPLOAD" action = "/upload" method = "post" class = "form" enctype = "multipart/form-data">
+            <form ref = "uploadForm" id = "uploadForm" action = "/upload" method = "POST" class = "form" enctype = "multipart/form-data">
                 <div class = "myHeader"><b>Upload File</b></div>
                 <input type = "file" name = "uploadFile" id = "fileSelect">
                 <input type = "submit" value = "Upload">

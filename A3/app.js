@@ -72,19 +72,19 @@ app.get('/uploads/:name', function(req , res){
 
 // Set up functions from my library
 // We create a new object called sharedLib and the C functions become its methods
-let sharedLib = ffi.Library('./LIBRARY_NAME', {
+//let sharedLib = ffi.Library('./LIBRARY_NAME', {
     //return type first, argument list second
     //for void input type, leave argumrnt list empty
-});
+//});
 
 // call functions with sharedLib.functionName()
 
 //Sample endpoint
-app.get('/someendpoint', function( req , res ) {
+app.get('/getFiles', function( req , res ) {
+    var fileList = fs.readdirSync( './uploads/' );
     res.send({
-        foo: "bar"
+        file: fileList
     });
-    //console.log(res);
 });
 
 app.get('/create', function( req, res ) {
