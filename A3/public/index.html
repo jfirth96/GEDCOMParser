@@ -24,7 +24,7 @@
         <div class = "content left">
             <!-- Status Panel -->
             <div class = "myHeader"><b>System Status</b></div>
-            <textarea class = "StatusTextBox" id = "STATUS" wrap = "hard" style = "resize: none;" data-role="none" placeHolder = "System status pending..." readonly></textarea>
+            <textarea class = "StatusTextBox" id = "STATUS" style = "resize: none;" data-role="none" placeHolder = "System status pending..." readonly></textarea>
 
             <!-- Create GEDCOM -->
             <form id = "CREATE" action = "/create" method = "get" class = "form">
@@ -33,6 +33,7 @@
                 <input id = "GD_file" type = "text" placeholder = "filename.ged"><br>
 
                 <input id = "GD_src" type = "text" placeholder = "Source" value = "CIS2750GenealogyApp"><br><br />
+
                 Encoding:<br>
                 <select id = "GD_char" name = "CharSets">
                     <option value = "ASCII">ASCII</option>
@@ -46,6 +47,7 @@
                 <input id = "GD_sub" type = "text" placeholder = "Submitter Name"><br>
 
                 <input id = "GD_subAdd" type = "text" placeholder = "Submitter Address"><br>
+
                 <input type = "submit" value = "Create GEDCOM" onsubmit = "createGED()">
             </form>
             <br>
@@ -53,23 +55,26 @@
             <!-- Upload File to Server -->
             <form ref = "uploadForm" id = "uploadForm" action = "/upload" method = "POST" class = "form" enctype = "multipart/form-data">
                 <div class = "myHeader"><b>Upload File</b></div>
+
                 <input type = "file" name = "uploadFile" id = "fileSelect">
+
                 <input type = "submit" value = "Upload">
             </form>
             <br>
 
             <!-- Add Individual -->
-            <form action = "/index.html" class = "form">
+            <form id = "ADD" action = "/addPerson" method = "get" class = "form">
                 <div class = "myHeader"><b>Add Individual to GEDCOM</b></div>
                 
                 <input id = "AD_givn" type = "text" name = "GivenName" placeholder = "Given Name"><br>
                 
                 <input id = "AD_surn" type = "text" name = "Surname" placeholder = "Surname"><br><br>
+
                 Files:<br />
                 <select id = "FILE_SELECT1" name = "File_List1">
-                    
                 </select><br /><br />
-                <input type = "button" value = "Add Individual" onclick = "addIndividual()">
+
+                <input type = "submit" value = "Add Individual">
             </form>
             <br>
 
@@ -82,12 +87,15 @@
                 <input id = "GD/A_surn" type = "text" name = "Surname" placeholder = "Surname"><br>
 
                 <input id = "GD/A_gen" type = "number" min = 0 name = "Generations" placeholder = "Number of Generations"><br>
+                
                 Files:<br />
                 <select id = "FILE_SELECT2" name = "File_List2">
-
                 </select><br /><br />
+
                 <input type = "button" value = "Get Descendants" onclick = "getDescend()">
+
                 <input type = "button" value = "Get Ancestors" onclick = "getDescend()">
+
                 <table id = "GEN_LIST" style = "table">
                 </table>
             </form>
@@ -112,15 +120,20 @@
             </table><br />
 
             <!-- GEDCOM View -->
-            <table style = "table" id = "GEDCOM" name = "GEDCOM View">
-                <div class = "myHeader"><b>GEDCOM View</b></div>
-                <tr>
-                    <th>Given Name</th>
-                    <th>Surname</th>
-                    <th>Sex</th>
-                    <th>Family Size</th>
-                </tr>
-            </table>
+            <form id = "VIEW" action = "" class = "form">
+                <table style = "table" id = "GEDCOM" name = "GEDCOM View">
+                    <div class = "myHeader"><b>GEDCOM View</b></div>
+                    <tr>
+                        <th>Given Name</th>
+                        <th>Surname</th>
+                        <th>Sex</th>
+                        <th>Family Size</th>
+                    </tr>
+                </table>
+                Files:<br />
+                <select id = "FILE_SELECT3" name = "File_List3">
+                </select><br /><br />
+            </form>
         </div>
     </div>
 

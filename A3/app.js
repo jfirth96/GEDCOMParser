@@ -72,10 +72,14 @@ app.get('/uploads/:name', function(req , res){
 
 // Set up functions from my library
 // We create a new object called sharedLib and the C functions become its methods
-//let sharedLib = ffi.Library('./LIBRARY_NAME', {
+let sharedLib = ffi.Library( 'sharedLib', {
     //return type first, argument list second
     //for void input type, leave argumrnt list empty
-//});
+    'GEDCOMtoJSON': [ 'string', [ 'string' ] ],
+    'JSONtoGEDCOMWrap': [ 'int', [ 'string', 'string' ] ],
+    'addPersonWrap': ['int', [ 'string', 'string' ] ],
+    'indivListToJSON': [ 'string', [ 'string' ] ]
+});
 
 // call functions with sharedLib.functionName()
 
@@ -87,17 +91,75 @@ app.get('/getFiles', function( req , res ) {
     });
 });
 
-app.get('/create', function( req, res ) {
-    //console.log( req );
-    //console.log( res );
-    console.log( req.query );
+app.get('/fileInfo', function( req, res ) {
+    //var p = JSON.parse( req.query );
+    //console.log( req.query );
 
-    res.send({
-        foo: "next"
-    });
-    //console.log( res );
+    var t = sharedLib.GEDCOMtoJSON( req.query.file );
+    //console.log( req.query.file );
+    //console.log( t );
+    res.send( t );
 });
 
+app.get('/create', function( req, res ) {
+    console.log( req.query );
+
+    var ret = {
+        'json': req.query.json,
+        'file': req.query.file,
+        error: "N/A"
+    };
+    //console.log( ret );
+    var fileList = fs.readdirSync( './uploads/' );
+    for (var i in fileList) {
+        if (fileList[i] == req.query.file) {
+            ret.error = fileList[i] + " already exists on the server.";
+            return res.send(ret);
+        }
+    }
+
+    var obj = sharedLib.JSONtoGEDCOMWrap( req.query.json, req.query.file );
+
+    if (obj < 0) {
+        ret.error = "Could not create <" + req.query.file + "> in uploads/";
+    } else {
+        ret.error = "Successfully created <" + req.query.file + "> in uploads/";
+    }
+    res.send( ret );
+});
+
+app.get( '/addPerson', function( req, res ) {
+    //console.log( req.query );
+
+    var str = JSON.stringify( req.query.json );
+    var obj = sharedLib.addPersonWrap( str, req.query.file );
+    var ret;
+    if (obj == -1) {
+        ret = "Unable to parse file to add individual.";
+    } else if (obj == -2) {
+        ret = "Unable to create the individual.";
+    } else if (obj == -3) {
+        ret = "Person already exists in given file.";
+    } else if (obj == -4) {
+        ret = "Unable to validate object.";
+    } else if (obj == -5) {
+        ret = "Unable to write the file.";
+    } else {
+        ret = "Successfully added " + req.query.json.givenName + " " + req.query.json.surname + " to <" + req.query.file + ">";
+    }
+    console.log( ret );
+    res.send({
+      'data': ret
+    });
+});
+
+app.get( '/changeView', function( req, res ) {
+    //console.log( req.query );
+
+    var obj = sharedLib.indivListToJSON( req.query.file );
+    console.log( obj );
+    res.send( obj );
+});
 
 app.listen(portNum);
 console.log('Running app at localhost: ' + portNum);
