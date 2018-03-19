@@ -76,8 +76,31 @@ $(document).ready(function() {
         if (ext[1] == null || ext[1] != "ged") {
             document.getElementById( "STATUS" ).value = "Invalid file extension, must be .ged\n" + document.getElementById( "STATUS" ).value;
             document.getElementById( "STATUS" ).value.replace( /\r?\n/g, '<br />' );
+            elems[0].value = "";
             return;
         }
+        if (src.length == 0) {
+			document.getElementById( "STATUS" ).value = "Must provide a 'Source' value.\n" + document.getElementById( "STATUS" ).value;
+            document.getElementById( "STATUS" ).value.replace( /\r?\n/g, '<br />' );
+			return;
+		}
+		if (GEDCversion.length == 0) {
+			document.getElementById( "STATUS" ).value = "Must provide a GEDCOM version.\n" + document.getElementById( "STATUS" ).value;
+            document.getElementById( "STATUS" ).value.replace( /\r?\n/g, '<br />' );
+			return;
+		} else {
+			if (isNaN( GEDCversion) || Number( GEDCversion ) < 0) {
+				document.getElementById( "STATUS" ).value = "GEDCOM version must be >= 0.\n" + document.getElementById( "STATUS" ).value;
+				document.getElementById( "STATUS" ).value.replace( /\r?\n/g, '<br />' );
+				elems[3].value = "";
+				return;
+			}
+		}
+		if (subName.length == 0) {
+			document.getElementById( "STATUS" ).value = "Must provide a Submitter name.\n" + document.getElementById( "STATUS" ).value;
+            document.getElementById( "STATUS" ).value.replace( /\r?\n/g, '<br />' );
+			return;
+		}
 
         // Test stuff
         var print = file + " " + src + " " + charSet + " " + GEDCversion + " " + subName + " " + subAddr;
@@ -338,6 +361,11 @@ function getDescend( objArray ) {
     var c1;
     var c2;
     var c3;
+    
+    if (objArray.length == 0) {
+		table.innerHTML = "No individuals to display.";
+		return;
+	}
 
 	for (var i in objArray) {
 		for (var j in objArray[i]) {

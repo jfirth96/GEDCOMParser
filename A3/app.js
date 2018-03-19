@@ -77,7 +77,8 @@ let sharedLib = ffi.Library( './sharedLib', {
     'JSONtoGEDCOMWrap': [ 'int', [ 'string', 'string' ] ],
     'addPersonWrap': ['int', [ 'string', 'string' ] ],
     'indivListToJSON': [ 'string', [ 'string' ] ],
-    'getDescendantsWrap': [ 'string', [ 'string', 'string', 'int' ] ]
+    'getDescendantsWrap': [ 'string', [ 'string', 'string', 'int' ] ],
+    'getAncestorsWrap': [ 'string', [ 'string', 'string', 'int' ] ]
 });
 
 app.get('/getFiles', function( req , res ) {
@@ -158,21 +159,24 @@ app.get( '/changeView', function( req, res ) {
 });
 
 app.get( '/getDescend', function( req, res ) {
-	console.log( "/getDescend" );
-	console.log( req.query );
+	//console.log( "/getDescend" );
+	//console.log( req.query );
 	
 	var json = JSON.stringify( req.query.ind );
 	
 	var descendList = sharedLib.getDescendantsWrap( req.query.file, json, req.query.gens );
 	
 	var json = JSON.parse( descendList );
-	//console.log( descendList );
 	res.send( json );
 });
 
 app.get( '/getAncestors', function( req, res ) {
-	console.log( "ANCESTORS" );
-	console.log( req.query );
+	var json = JSON.stringify( req.query.ind );
+	
+	var genList = sharedLib.getAncestorsWrap( req.query.file, json, req.query.gens );
+	
+	var json = JSON.parse( genList );
+	res.send( json );
 });
 
 app.listen(portNum);

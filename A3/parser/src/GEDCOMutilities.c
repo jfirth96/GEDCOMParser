@@ -877,6 +877,63 @@ char* GEDCOMtoJSON( char *filename ) {
     return str;
 }
 
+char* getAncestorsWrap( char *filename, char *individual, int maxGen ) {
+	char *str = calloc( sizeof( char ), 3 );
+    str[0] = '[';
+    str[1] = ']';
+    if (filename == NULL || individual == NULL) {
+        return str;
+    }
+
+    char *s = calloc( sizeof( char ), strlen( filename ) + strlen( "uploads/" ) + 1 );
+    strcpy( s, "uploads/" );
+    strcat( s, filename );
+
+    // Open file and read obj
+    GEDCOMobject *obj = NULL;
+    GEDCOMerror read = createGEDCOM( s, &obj );
+    free( s );
+
+    if (read.type != OK) {
+        return str;
+    }
+    
+    // indivToJSON
+    Individual *target = JSONtoInd( individual );
+    if (target == NULL) {
+		deleteGEDCOM( obj );
+		return str;
+	}
+    
+    // find person
+    Individual *refInd = findPerson( obj, &compareFunc, target );
+    if (refInd == NULL) {
+		deleteGEDCOM( obj );
+		deleteIndividual( target );
+		return str;
+	}
+	
+	// get ancestors
+	List ancestors = getAncestorListN( obj, refInd, maxGen );
+    if (getLength( ancestors ) <= 0) {
+		deleteGEDCOM( obj );
+		deleteIndividual( target );
+		return str;
+    }
+    
+	// g list to JSON
+	char *ancestorListJSON = gListToJSON( ancestors );
+    clearList( &ancestors );
+	deleteGEDCOM( obj );
+	deleteIndividual( target );
+    if (ancestorListJSON == NULL) {
+		return str;
+	} else {
+		free( str );
+		return ancestorListJSON;
+	}
+}
+
 char* getDescendantsWrap( char *filename, char *individual, int maxGen ) {
 	char *str = calloc( sizeof( char ), 3 );
     str[0] = '[';

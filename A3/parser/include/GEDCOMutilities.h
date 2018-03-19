@@ -287,6 +287,11 @@ List getChildren( Individual* indiv );
 /**
  * 
  */
+char* getAncestorsWrap( char *filename, char *individual, int maxGen );
+
+/**
+ * 
+ */
 char* getDescendantsWrap( char *filename, char *individual, int maxGen );
 
 /**
