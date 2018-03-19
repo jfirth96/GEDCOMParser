@@ -89,24 +89,17 @@ app.get('/getFiles', function( req , res ) {
 });
 
 app.get('/fileInfo', function( req, res ) {
-    //var p = JSON.parse( req.query );
-    //console.log( req.query );
-
     var t = sharedLib.GEDCOMtoJSON( req.query.file );
-    //console.log( req.query.file );
-    //console.log( t );
     res.send( t );
 });
 
 app.get('/create', function( req, res ) {
-    console.log( req.query );
-
     var ret = {
         'json': req.query.json,
         'file': req.query.file,
         error: "N/A"
     };
-    //console.log( ret );
+    
     var fileList = fs.readdirSync( './uploads/' );
     for (var i in fileList) {
         if (fileList[i] == req.query.file) {
@@ -126,10 +119,9 @@ app.get('/create', function( req, res ) {
 });
 
 app.get( '/addPerson', function( req, res ) {
-    //console.log( req.query );
-
     var str = JSON.stringify( req.query.json );
     var obj = sharedLib.addPersonWrap( str, req.query.file );
+    
     var ret;
     if (obj == -1) {
         ret = "Unable to parse file to add individual.";
@@ -144,29 +136,24 @@ app.get( '/addPerson', function( req, res ) {
     } else {
         ret = "Successfully added " + req.query.json.givenName + " " + req.query.json.surname + " to <" + req.query.file + ">";
     }
-    console.log( ret );
+    
     res.send({
       'data': ret
     });
 });
 
 app.get( '/changeView', function( req, res ) {
-    //console.log( req.query );
-
     var obj = sharedLib.indivListToJSON( req.query.file );
-    console.log( obj );
     res.send( obj );
 });
 
 app.get( '/getDescend', function( req, res ) {
-	//console.log( "/getDescend" );
-	//console.log( req.query );
-	
 	var json = JSON.stringify( req.query.ind );
 	
 	var descendList = sharedLib.getDescendantsWrap( req.query.file, json, req.query.gens );
 	
 	var json = JSON.parse( descendList );
+	
 	res.send( json );
 });
 
