@@ -9,6 +9,10 @@
 1 NAME Jackson
 1 ADDR 132 Ironwood
 0 @I001@ INDI
+1 NAME BlahBlah /Boringston/
+2 GIVN BlahBlah
+2 SURN Boringston
+0 @I002@ INDI
 1 NAME Jackson /Firth/
 2 GIVN Jackson
 2 SURN Firth

@@ -274,7 +274,7 @@ char* GEDCOMtoJSON( char *filename );
  * @param string The string representation of a CharSet value
  * @return CharSet value able to be assigned
  */
-CharSet getCharSetFromString( char* string );
+CharSet getCharSetFromString( char *string );
 
 /**
  * Gets the children of an individual
@@ -283,6 +283,11 @@ CharSet getCharSetFromString( char* string );
  * @return List of children
  */
 List getChildren( Individual* indiv );
+
+/**
+ * 
+ */
+char* getDescendantsWrap( char *filename, char *individual, int maxGen );
 
 /**
  * Gets the parents of an individual

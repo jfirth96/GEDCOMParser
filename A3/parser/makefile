@@ -38,7 +38,7 @@ GEDCOMutil : $(SRC)GEDCOMutilities.c $(INC)GEDCOMutilities.h
 	$(CC) $(CFLAGS) -c -fpic $(SRC)GEDCOMutilities.c -o $(BIN)GEDCOMutil.o
 
 LinkedList.o : $(SRC)LinkedListAPI.c $(INC)LinkedListAPI.h
-	$(CC) $(CFLAGS) -c $(SRC)LinkedListAPI.c -o $(BIN)LinkedListAPI.o
+	$(CC) $(CFLAGS) -c -fpic $(SRC)LinkedListAPI.c -o $(BIN)LinkedListAPI.o
 
 #TestUtil.o : $(SRC)GEDCOMTestUtilities.c $(INC)GEDCOMTestUtilities.h
 #	$(CC) $(CFLAGS) -c $(SRC)GEDCOMTestUtilities.c -o $(BIN)GEDCOMTestUtilities.o

@@ -23,9 +23,12 @@
     <div class = "page">
         <div class = "content left">
             <!-- Status Panel -->
-            <div class = "myHeader"><b>System Status</b></div>
-            <textarea class = "StatusTextBox" id = "STATUS" style = "resize: none;" data-role="none" placeHolder = "System status pending..." readonly></textarea>
-
+            <div class = "STATUS">
+				<div class = "myHeader"><b>System Status</b></div>
+				<textarea class = "StatusTextBox" id = "STATUS" style = "resize: none;" data-role="none" placeHolder = "System status pending..." readonly></textarea>
+				<input type = "button" value = "Clear" id = "CLEAR"><br>
+            </div>
+            
             <!-- Create GEDCOM -->
             <form id = "CREATE" action = "/create" method = "get" class = "form">
                 <div class = "myHeader"><b>Create GEDCOM</b></div>
@@ -92,9 +95,9 @@
                 <select id = "FILE_SELECT2" name = "File_List2">
                 </select><br /><br />
 
-                <input type = "button" value = "Get Descendants" onclick = "getDescend()">
+                <input type = "button" value = "Get Descendants" id = "DESCEND">
 
-                <input type = "button" value = "Get Ancestors" onclick = "getDescend()">
+                <input type = "button" value = "Get Ancestors" id = "ANCEST">
 
                 <table id = "GEN_LIST" style = "table">
                 </table>

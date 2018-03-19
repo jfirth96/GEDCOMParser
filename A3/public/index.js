@@ -225,6 +225,84 @@ $(document).ready(function() {
             }
         })
     });
+    
+    $('#DESCEND').click( function( e ) {
+        e.preventDefault();
+        var form = document.getElementById( "descend" );
+        var elems = form.elements;
+        var givn = elems[0].value;
+        var surn = elems[1].value;
+        var gens = elems[2].value;
+        var file = elems[3].value;
+        
+        var data = {
+			'givenName': givn,
+			'surname': surn
+		};
+		
+		$.ajax({
+			type: 'get',
+			dataType: 'json',
+			url: '/getDescend',
+			data: {
+				'ind': data,
+				'file': file,
+				'gens': gens
+			},
+			success: function( response ) {
+				console.log( response );
+				getDescend( response );
+				/*for (var i in response) {
+				    console.log( response[i] );
+				    for (var j in response[i] ) {
+						var json = JSON.stringify( response[i][j] );
+						console.log( json );
+					}
+				}*/
+				
+			},
+			fail : function( error ) {
+				console.log( error );
+			}
+		});
+    });
+
+	$('#CLEAR').click( function( e ) {
+		document.getElementById( "STATUS" ).value = "";
+	});
+	
+	$('#ANCEST').click( function( e ) {
+		e.preventDefault();
+        var form = document.getElementById( "descend" );
+        var elems = form.elements;
+        var givn = elems[0].value;
+        var surn = elems[1].value;
+        var gens = elems[2].value;
+        var file = elems[3].value;
+        
+        var data = {
+			'givenName': givn,
+			'surname': surn
+		};
+		
+		$.ajax({
+			type: 'get',
+			dataType: 'json',
+			url: '/getAncestors',
+			data: {
+				'ind': data,
+				'file': file,
+				'gens': gens
+			},
+			success: function( response ) {
+				console.log( response );
+				getDescend( response );
+			},
+			fail : function( error ) {
+				console.log( error );
+			}
+		});
+	});
 });
 
 function addToFileLists( file ) {
@@ -252,35 +330,34 @@ function addIndividual() {
     console.log( "Added individual." );
 }
 
-function getDescend() {
-    var file = document.getElementById( "FILE_SELECT2" ).value;
-
+function getDescend( objArray ) {
     var table = document.getElementById( "GEN_LIST" );
     table.innerHTML = "";
 
-    var row = table.insertRow( 0 );
+    var row;
+    var c1;
+    var c2;
+    var c3;
+
+	for (var i in objArray) {
+		for (var j in objArray[i]) {
+			row = table.insertRow( j );
+			c1 = row.insertCell( 0 );
+			c2 = row.insertCell( 1 );
+			c3 = row.insertCell( 2 );
+			c1.innerHTML = "<tr>" + objArray[i][j].givenName + "</tr>";
+			c2.innerHTML = "<tr>" + objArray[i][j].surname + "</tr>";
+			var t = Number( i ) + 1;
+			c3.innerHTML = "<tr>" + t + "</tr>";;
+		}
+	}
+	var row = table.insertRow( 0 );
     var c1 = row.insertCell( 0 );
     var c2 = row.insertCell( 1 );
     var c3 = row.insertCell( 2 );
     c1.innerHTML = "<th><b>First Name</b></th>";
     c2.innerHTML = "<th><b>Last Name</b></th>";
     c3.innerHTML = "<th><b>Generation</b></th>";
-
-    row = table.insertRow( 1 );
-    c1 = row.insertCell(0);
-    c2 = row.insertCell(1);
-    c3 = row.insertCell( 2 );
-    c1.innerHTML = "<tr>Duncan</tr>";
-    c2.innerHTML = "<tr>Firth</tr>";
-    c3.innerHTML = "<tr>1</tr>";
-
-    row = table.insertRow( 2 );
-    c1 = row.insertCell(0);
-    c2 = row.insertCell(1);
-    c3 = row.insertCell( 2 );
-    c1.innerHTML = "<tr>Norman</tr>";
-    c2.innerHTML = "<tr>Firth</tr>";
-    c3.innerHTML = "<tr>2</tr>";
 }
 
 function uploadFile( file ) {

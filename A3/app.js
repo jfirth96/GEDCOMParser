@@ -70,20 +70,16 @@ app.get('/uploads/:name', function(req , res){
 
 //******************** Your code goes here ******************** 
 
-// Set up functions from my library
-// We create a new object called sharedLib and the C functions become its methods
-let sharedLib = ffi.Library( 'sharedLib', {
+let sharedLib = ffi.Library( './sharedLib', {
     //return type first, argument list second
     //for void input type, leave argumrnt list empty
     'GEDCOMtoJSON': [ 'string', [ 'string' ] ],
     'JSONtoGEDCOMWrap': [ 'int', [ 'string', 'string' ] ],
     'addPersonWrap': ['int', [ 'string', 'string' ] ],
-    'indivListToJSON': [ 'string', [ 'string' ] ]
+    'indivListToJSON': [ 'string', [ 'string' ] ],
+    'getDescendantsWrap': [ 'string', [ 'string', 'string', 'int' ] ]
 });
 
-// call functions with sharedLib.functionName()
-
-//Sample endpoint
 app.get('/getFiles', function( req , res ) {
     var fileList = fs.readdirSync( './uploads/' );
     res.send({
@@ -159,6 +155,24 @@ app.get( '/changeView', function( req, res ) {
     var obj = sharedLib.indivListToJSON( req.query.file );
     console.log( obj );
     res.send( obj );
+});
+
+app.get( '/getDescend', function( req, res ) {
+	console.log( "/getDescend" );
+	console.log( req.query );
+	
+	var json = JSON.stringify( req.query.ind );
+	
+	var descendList = sharedLib.getDescendantsWrap( req.query.file, json, req.query.gens );
+	
+	var json = JSON.parse( descendList );
+	//console.log( descendList );
+	res.send( json );
+});
+
+app.get( '/getAncestors', function( req, res ) {
+	console.log( "ANCESTORS" );
+	console.log( req.query );
 });
 
 app.listen(portNum);
