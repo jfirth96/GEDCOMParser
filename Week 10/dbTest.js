@@ -3,9 +3,9 @@
 const mysql = require('mysql');
 const connection = mysql.createConnection({
     host     : 'dursley.socs.uoguelph.ca',
-    user     : 'usernameGoesHere',
-    password : 'passwordGoesHere',
-    database : 'databaseNameGoesHere'
+    user     : 'jfirth',
+    password : '0880887',
+    database : 'jfirth'
 });
 
 
@@ -13,11 +13,11 @@ connection.connect();
 
 // **** uncomment if you want to create the table on the fly ****
 
-/*
+
 connection.query("create table student (id int not null auto_increment,  last_name char(15),  first_name char(15), mark char(2), primary key(id) )", function (err, rows, fields) {
     if (err) console.log("Something went wrong. "+err);
 });
-*/
+
 
 // *** If you uncommented code above, remember to also uncomment the "drop table" code at the bottom of this file ****
 
@@ -87,11 +87,11 @@ connection.query("delete from student", function (err, rows, fields) {
 
 
 // **** uncomment this if you also uncomment the "create table" code at the front ****
-/*
+
 connection.query("drop table student", function (err, rows, fields) {
     if (err) console.log("Something went wrong. "+err);
 });
-*/
+
 
 connection.end();
 
