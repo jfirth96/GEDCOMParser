@@ -24,12 +24,12 @@
         <div id="overlay"></div>
         <div id="popup">
             Username:<br>
-            <input id = "DB_UNAME" type = "text" placeholder = "jfirth"><br><br \>
+            <input id = "DB_UNAME" type = "text" placeholder = "jfirth" required><br><br \>
             Password:<br>
-            <input id = "DB_PWORD" type = "text" placeholder = "0880887">
+            <input id = "DB_PWORD" type = "text" placeholder = "0880887" required>
             <input id = "DB_SUB" type = "button" value = "Connect"  style = "float: right;"><br><br \>
             Database:<br>
-            <input id = "DB_DBASE" type = "text" placeholder = "jfirth">
+            <input id = "DB_DBASE" type = "text" placeholder = "jfirth" required>
         </div>
         <div class = "content left">
             <!-- Status Panel -->
@@ -146,6 +146,26 @@
                 Files:<br />
                 <select id = "FILE_SELECT3" name = "File_List3">
                 </select><br /><br />
+            </form><br />
+
+            <!-- DATABASE SECTION -->
+            <form id = "DB" action = "" class = "form">
+                <div class = "myHeader"><b>Database Section</b></div>
+                <input type = "button" id = "DB_STATUS" value = "Display Database Status">
+                <input type = "button" id = "STORE_ALL" value = "Store All Files">
+                <input type = "button" id = "CLEAR_ALL" value = "Clear All Data"><br/>
+                <form id = "EXEC_QY" action ="" class = "form">
+                    <div class = "myHeader"><b>Execute Query</b></div>
+                    <input type = "text" id = "QRY_IN">* Type input for queries here.<br><br />
+                    <input type = "button" id = "QRY_1" value = "Display Individuals by Surname">
+                    <input type = "button" id = "QRY_2" value = "Display Individuals from File">
+                    <input type = "button" id = "QRY_3" value = "Query 3">
+                    <input type = "button" id = "QRY_4" value = "Query 4">
+                    <input type = "button" id = "QRY_5" value = "Query 5">
+                    <input type = "button" id = "QRY_C" value = "Clear Query Results"><br />
+                    <div class = "myHeader"><b>Query Results</b></div>
+                    <textarea class = "EX_RES" id = "EX_RESULT" style = "overflow: auto;" data-role="none" readonly></textarea>
+                </form>
             </form>
         </div>
     </div>

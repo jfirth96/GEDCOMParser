@@ -1,77 +1,77 @@
 'use strict'
 
 // C library API
-const ffi = require('ffi');
+const ffi = require( 'ffi' );
 
 // Express App (Routes)
-const express = require("express");
+const express = require( "express" );
 const app     = express();
-const path    = require("path");
-const fileUpload = require('express-fileupload');
+const path    = require( "path" );
+const fileUpload = require( 'express-fileupload' );
 
-app.use(fileUpload());
+app.use( fileUpload() );
 
 // Minimization
-const fs = require('fs');
-const JavaScriptObfuscator = require('javascript-obfuscator');
+const fs = require( 'fs' );
+const JavaScriptObfuscator = require( 'javascript-obfuscator' );
 
 // Important, pass in port as in `npm run dev 1234`, do not change
 const portNum = process.argv[2];
 
 // SQL modules
-const mysql = require('mysql');
+const mysql = require( 'mysql' );
+let connection;
 
 // Send HTML at root, do not change
-app.get('/',function(req,res){
-  res.sendFile(path.join(__dirname+'/public/index.html'));
+app.get( '/', function( req, res ) {
+  res.sendFile( path.join( __dirname + '/public/index.html' ) );
 });
 
 // Send Style, do not change
-app.get('/style.css',function(req,res){
-  //Feel free to change the contents of style.css to prettify your Web app
-  res.sendFile(path.join(__dirname+'/public/style.css'));
+app.get( '/style.css', function( req, res ) {
+    //Feel free to change the contents of style.css to prettify your Web app
+    res.sendFile( path.join( __dirname + '/public/style.css' ) );
 });
 
 // Send obfuscated JS, do not change
-app.get('/index.js',function(req,res){
-  fs.readFile(path.join(__dirname+'/public/index.js'), 'utf8', function(err, contents) {
-    const minimizedContents = JavaScriptObfuscator.obfuscate(contents, {compact: true, controlFlowFlattening: true});
-    res.contentType('application/javascript');
-    res.send(minimizedContents._obfuscatedCode);
-  });
+app.get( '/index.js', function( req, res ) {
+    fs.readFile( path.join( __dirname + '/public/index.js' ), 'utf8', function( err, contents ) {
+        const minimizedContents = JavaScriptObfuscator.obfuscate( contents, {compact: true, controlFlowFlattening: true} );
+        res.contentType( 'application/javascript' );
+        res.send( minimizedContents._obfuscatedCode );
+    });
 });
 
 //Respond to POST requests that upload files to uploads/ directory
-app.post('/upload', function(req, res) {
-  if(!req.files) {
-    return res.status(400).send('No files were uploaded.');
-  }
- 
-  let uploadFile = req.files.uploadFile;
- 
-  // Use the mv() method to place the file somewhere on your server
-  uploadFile.mv('uploads/' + uploadFile.name, function(err) {
-    if(err) {
-      return res.status(500).send(err);
+app.post( '/upload', function( req, res ) {
+    if (!req.files) {
+        return res.status( 400 ).send( 'No files were uploaded.' );
     }
-
-    res.redirect('/');
-  });
+ 
+    let uploadFile = req.files.uploadFile;
+ 
+    // Use the mv() method to place the file somewhere on your server
+    uploadFile.mv( 'uploads/' + uploadFile.name, function( err ) {
+        if (err) {
+            return res.status( 500 ).send( err );
+        }
+        res.redirect( '/' );
+    });
 });
 
 //Respond to GET requests for files in the uploads/ directory
-app.get('/uploads/:name', function(req , res){
-  fs.stat('uploads/' + req.params.name, function(err, stat) {
-    console.log(err);
-    if(err == null) {
-      res.sendFile(path.join(__dirname+'/uploads/' + req.params.name));
-    } else {
-      res.send('');
-    }
-  });
+app.get( '/uploads/:name', function( req , res ) {
+    fs.stat( 'uploads/' + req.params.name, function( err, stat ) {
+        console.log( err );
+        if (err == null) {
+            res.sendFile( path.join( __dirname + '/uploads/' + req.params.name ) );
+        } else {
+            res.send( '' );
+        }
+    });
 });
 
-//******************** Your code goes here ******************** 
+//******************** Your code goes here ********************************************************************************
 
 let sharedLib = ffi.Library( './sharedLib', {
     //return type first, argument list second
@@ -169,16 +169,242 @@ app.get( '/getAncestors', function( req, res ) {
 	res.send( json );
 });
 
-app.get( '/credentials', function( req, res ) {
-  const connection = mysql.createConnection({
-      'host'     : 'dursley.socs.uoguelph.ca',
-      'user'     : req.query.uname,
-      'password' : req.query.pword,
-      'database' : req.query.uname
-  });
+app.get( '/file', function( req, res ) {
+    console.log( req.query );
 
-  connection.connect();
-  res.send( req.query );
+    // Form connection once, declared as global variable
+    connection = mysql.createConnection({
+        'host'     : 'dursley.socs.uoguelph.ca',
+        'user'     : req.query.uname,
+        'password' : req.query.pword,
+        'database' : req.query.dbase
+    });
+
+    connection.connect();
+    let query = "CREATE TABLE IF NOT EXISTS FILE (file_id INT NOT NULL AUTO_INCREMENT," + 
+        " file_name VARCHAR(60) NOT NULL," + 
+        " source VARCHAR(250) NOT NULL," + 
+        " version VARCHAR(10) NOT NULL," + 
+        " encoding VARCHAR(10) NOT NULL," + 
+        " sub_name VARCHAR(62) NOT NULL," + 
+        " sub_addr VARCHAR(256)," + 
+        " num_individuals INT," + 
+        " num_families INT," + 
+        " PRIMARY KEY(file_id), UNIQUE (file_name))";
+    connection.query( query, function( err, rows, fields ) {
+        if ( err ) {
+            console.log( "Something went wrong. " + err );
+            res.send({
+                'resp': err
+            })
+        } else {
+            console.log( "Successfully created table FILE" );
+            res.send({
+                resp: "Successfully created table FILE"
+            });
+        }
+    });
+});
+
+app.get( '/individual', function( req, res ) {
+    //console.log( req.query );
+
+    let query = "CREATE TABLE IF NOT EXISTS INDIVIDUAL (ind_id INT NOT NULL AUTO_INCREMENT," + 
+        " surname VARCHAR(256) NOT NULL," + 
+        " given_name VARCHAR(256) NOT NULL," + 
+        " sex VARCHAR(1)," + 
+        " fam_size INT," + 
+        " source_file INT," + 
+        " FOREIGN KEY(source_file) REFERENCES FILE(file_id) ON DELETE CASCADE," + 
+        " PRIMARY KEY(ind_id), UNIQUE(source_file, surname, given_name))";
+    connection.query( query, function( err, rows, fields ) {
+        if ( err ) {
+            console.log( "Something went wrong. " + err );
+            res.send({
+                'resp': err
+            })
+        } else {
+            console.log( "Successfully created table INDIVIDUAL" );
+            res.send({
+                resp: "Successfully created table INDIVIDUAL"
+            });
+        }
+    });
+});
+
+app.get( '/storeAllFiles', function( req, res ) {
+    //console.log( req.query );
+
+    let query = "INSERT INTO FILE VALUES( null, '" +
+        req.query.file_name + "', '" +
+        req.query.source + "', '" +
+        req.query.version + "', '" +
+        req.query.encoding + "', '" +
+        req.query.sub_name + "', '" +
+        req.query.sub_addr + "', '" +
+        req.query.num_individuals + "', '" +
+        req.query.num_families  + "')";
+
+    connection.query( query, function( err, rows, fields ) {
+        if (err) {
+            if (err.code != "ER_DUP_ENTRY") {
+                console.log( "Something went wrong. " + err );
+                res.send({
+                    error: "Something went wrong. " + err
+                });    
+            } else {
+                console.log( "Duplicate entry, not inserting.");
+                res.send({
+                    error: "Duplicate entry, not inserting."
+                });
+            }
+        } else {
+            console.log( "Inserted into FILE successfully." );
+            res.send({
+                resp: "Inserted into FILE successfully."
+            });
+        }
+    });
+});
+
+function getKey( filename, func ) {
+    let query = "SELECT file_id FROM FILE WHERE file_name = '" + filename + "'";
+
+    connection.query( query, function( err, rows, fields ) {
+        // call passed in function
+        if (err || rows[0] == null) {
+            func( err, null );
+        } else {
+            func( null, rows[0]['file_id'] );
+        }
+    });
+}
+
+app.get( '/storeAllIndiv', function( req, res ) {
+    //console.log( req.query );
+
+    let indivs = sharedLib.indivListToJSON( req.query.file );
+    let indivList = JSON.parse( indivs );
+
+    getKey( req.query.file, function( error, key ) {
+        if (error) {
+            console.log( error );
+        } else {
+            for (let ind of indivList) {
+                //console.log( ind );
+                let query = "INSERT INTO INDIVIDUAL VALUES( null, '" +
+                    ind.surname + "', '" +
+                    ind.givenName + "', '" +
+                    ind.sex + "', '0', '" +
+                    key + "')";
+
+                //console.log( query );
+
+                connection.query( query, function( err, rows, fields ) {
+                    if (err) {
+                        if (err.code != "ER_DUP_ENTRY") {
+                            console.log( "Something went wrong. " + err );
+                            /*res.send({
+                                error: "Something went wrong. " + err
+                            });*/   
+                        } else {
+                            console.log( "Duplicate entry, not inserting.");
+                            /*res.send({
+                                error: "Duplicate entry, not inserting."
+                            });*/
+                        }
+                    } else {
+                        console.log( "Inserted into INDIVIDUAL successfully." );
+                        /*res.send({
+                            resp: "Inserted into INDIVIDUAL successfully."
+                        });*/
+                    }
+                });
+            }
+        }
+    });
+    res.send({
+        resp: "Finished getKey()"
+    });
+});
+
+app.get( '/clearData', function( req, res ) {
+    let query = "DELETE FROM " + req.query.table;
+
+    connection.query( query, function( err, rows, fields ) {
+        connection.query( "ALTER TABLE " + req.query.table + " AUTO_INCREMENT = 1", function( err, rows, fields ) {} );
+        if (err) {
+            res.send({
+                err: "Something went wrong. " + err
+            });
+        } else {
+            res.send({
+                resp: "Deleted rows from " + req.query.table
+            })
+        }
+    });
+});
+
+app.get( '/status', function( req, res ) {
+    let query = "SELECT file_name, num_individuals as file_list FROM FILE";
+
+    connection.query( query, function( err, rows, fields ) {
+        if (err) {
+            console.log( "Something went wrong. " + err );
+        } else {
+            let fileCnt = 0;
+            let indCnt = 0;
+            for (let row of rows) {
+                fileCnt++;
+                indCnt += row['file_list'];
+            }
+            res.send({
+                file: fileCnt,
+                ind: indCnt
+            });
+        }
+    });
+});
+
+app.get( '/allBySurname', function( req, res ) {
+    let query = "SELECT DISTINCT given_name, surname, sex FROM INDIVIDUAL ORDER BY surname DESC, given_name DESC";
+
+    connection.query( query, function( err, rows, fields ) {
+        if (err) {
+            res.send({
+                err: "Something went wrong. " + err
+            });
+        } else {
+            for (let row of rows) {
+                console.log( row );    
+            }
+            res.send( rows );
+        }
+    });
+});
+
+app.get( '/allFromFile', function( req, res ) {
+    getKey( req.query.file, function( error, key ) {
+        if (error) {
+            console.log( "Something went wrong. " + error );
+        } else {
+            let query = "SELECT DISTINCT given_name, surname, sex FROM INDIVIDUAL WHERE source_file = '" + key + "'";
+
+            connection.query( query, function( err, rows, fields ) {
+                if (err) {
+                    console.log( "Something went wrong. " + err );
+                    res.send( {
+                        err: "Something went wrong. " + err
+                    });
+                } else {
+                    for (let row of rows) {
+                        console.log( row );
+                    }
+                    res.send( rows );
+                }
+            });
+        }
+    });
 });
 
 app.listen(portNum);

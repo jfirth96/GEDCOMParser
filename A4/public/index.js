@@ -2,48 +2,44 @@ $(document).ready(function() {
     // Page Loaded
     console.log("Page loaded successfully.");
     document.getElementById( "STATUS" ).value = "";
- 
 
     var overlay = document.getElementById("overlay");
     var popup = document.getElementById("popup");
     overlay.style.display = "block"; // make visible
     popup.style.display = "block";
-    /*var success = false;
-    while (!success) {
-        // grab user input and attempt connection
-    }*/
-    /*document.getElementById("DB_SUB").onclick = function(){
-        var overlay = document.getElementById("overlay");
-        var popup = document.getElementById("popup");
-
-        var uname = document.getElementById( "DB_UNAME").value;
-        var pword = document.getElementById( "DB_PWORD").value;
-        var success = false;
-
-        while (!success) {
-            if (uname.length == 0 || pword.length == 0) {
-                success = false;
-            } else if () {
-
-            }
-        }
-
-        console.log( "U: " + uname + " P: " + pword );
-
-
-        overlay.style.display = "none";
-        popup.style.display = "none";
-    };*/
+    
     var json = {
-        'uname': document.getElementById( "DB_UNAME").value,
-        'pword': document.getElementById( "DB_PWORD").value
+        'uname': document.getElementById( "DB_UNAME" ).value,
+        'pword': document.getElementById( "DB_PWORD" ).value,
+        'dbase': document.getElementById( "DB_DBASE" ).value
     }
 
     $('#DB_SUB').click( function( e ) {
+        if (json.uname == "" || json.pword == "" || json.dbase == "") {
+            document.getElementById( "DB_UNAME" ).setAttribute( "style", "background-color: #ff0000" );
+            document.getElementById( "DB_PWORD" ).setAttribute( "style", "background-color: #ff0000" );
+            document.getElementById( "DB_DBASE" ).setAttribute( "style", "background-color: #ff0000" );
+            return;
+        }
         $.ajax({
             type: 'get',
             dataType: 'json',
-            url: '/credentials',
+            url: '/file',
+            data: json,
+            success: function( response ) {
+                console.log( response );
+                overlay.style.display = "none";
+                popup.style.display = "none";
+            },
+            fail: function( error ) {
+                console.log( error );
+            }
+        });
+
+        $.ajax({
+            type: 'get',
+            dataType: 'json',
+            url: '/individual',
             data: json,
             success: function( response ) {
                 console.log( response );
@@ -299,6 +295,10 @@ $(document).ready(function() {
 	$('#CLEAR').click( function( e ) {
 		document.getElementById( "STATUS" ).value = "";
 	});
+
+    $('#QRY_C').click( function( e ) {
+        document.getElementById( "EX_RESULT" ).value = ""; 
+    });
 	
 	$('#ANCEST').click( function( e ) {
 		e.preventDefault();
@@ -331,6 +331,165 @@ $(document).ready(function() {
 			}
 		});
 	});
+
+    $('#STORE_ALL').click( function( e ) {
+        var table = document.getElementById( "FILE" );
+        var rows = table.rows;
+
+        for (let i = 1; i < rows.length - 1; i++) {
+            let cells = rows[i].cells;
+            //for (let j = 0; j < cells.length; j++) {
+            //    console.log( cells[j].innerHTML );
+            //}
+            let json = {
+                file_name: cells[0].innerText,
+                source: cells[1].innerHTML,
+                version: cells[2].innerHTML,
+                encoding: cells[3].innerHTML,
+                sub_name: cells[4].innerHTML,
+                sub_addr: cells[5].innerHTML,
+                num_individuals: cells[6].innerHTML,
+                num_families: cells[7].innerHTML,
+            }
+            console.log( json );
+            $.ajax({
+                type: 'get',
+                dataType: 'json',
+                url: '/storeAllFiles',
+                data: json,
+                success: function( response ) {
+                    console.log( response );
+                },
+                fail: function( error ) {
+                    if (error.code != "ER_DUP_ENTRY") {
+                        console.log( "Something went wrong " + error );
+                    }
+                }
+            });
+
+            /*let json2 = {
+                ind_id: ,
+                surname: ,
+                given_name: ,
+                sex: ,
+                fam_size: ,
+                source_file: 
+            }*/
+            $.ajax({
+                type: 'get',
+                dataType: 'json',
+                url: '/storeAllIndiv',
+                data: {
+                    'file': cells[0].innerText
+                },
+                success: function( response ) {
+                    console.log( response );
+                },
+                fail: function( error ) {
+                    if (error.code != "ER_DUP_ENTRY") {
+                        console.log( "Something went wrong " + error );
+                    }
+                }
+            });
+        }
+    });
+
+    $('#CLEAR_ALL').click( function( e ) {
+        $.ajax({
+            type: 'get',
+            dataType: 'json',
+            url: '/clearData',
+            data: {
+                table: 'INDIVIDUAL'
+            },
+            success: function( response ) {
+                console.log( response );
+            },
+            fail: function( error ) {
+                console.log( error );
+            }
+        });
+
+        $.ajax({
+            type: 'get',
+            dataType: 'json',
+            url: '/clearData',
+            data: {
+                table: 'FILE'
+            },
+            success: function( response ) {
+                console.log( response );
+            },
+            fail: function( error ) {
+                console.log( error );
+            }
+        });
+    });
+
+    $('#DB_STATUS').click( function( e ) {
+        $.ajax({
+            type: 'get',
+            dataType: 'json',
+            url: '/status',
+            success: function( response ) {
+                //console.log( response );
+                document.getElementById( "STATUS" ).value = "Database has " + response.file + " files and " + response.ind + " individuals.\n" + document.getElementById( "STATUS" ).value;
+                document.getElementById( "STATUS" ).value.replace( /\r?\n/g, '<br />' );
+                //document.getElementById( "EX_RESULT" ).value = "Database has " + response.file + " files and " + response.ind + " individuals.\n" + document.getElementById( "STATUS" ).value;
+                //document.getElementById( "EX_RESULT" ).value.replace( /\r?\n/g, '<br />' );
+            },
+            fail: function( error ) {
+                console.log( "Something went wrong. " + error );
+            }
+        });
+    });
+
+    $('#QRY_1').click( function( e ) {
+        $.ajax({
+            type: 'get',
+            dataType: 'json',
+            url: '/allBySurname',
+            success: function( response ) {
+                console.log( response );
+                document.getElementById( "EX_RESULT" ).value = ""; 
+                for (rec of response) {
+                    //let str = JSON.stringify( rec, null, 2 );
+                    document.getElementById( "EX_RESULT" ).value = rec.given_name + " " + rec.surname + " " + rec.sex + "\n" + document.getElementById( "EX_RESULT" ).value;
+                    document.getElementById( "EX_RESULT" ).value.replace( /\r?\n/g, '<br />' );
+                }
+            },
+            fail: function( error ) {
+                console.log( error );
+            }
+        })
+    });
+
+    $('#QRY_2').click( function( e ) {
+        let file = document.getElementById( "QRY_IN" ).value;
+        if (file == "") {
+            return;
+        }
+
+        $.ajax({
+            type: 'get',
+            dataType: 'json',
+            url: '/allFromFile',
+            data: {
+                'file': file
+            },
+            success: function( response ) {
+                console.log( response );
+                document.getElementById( "EX_RESULT" ).value = ""; 
+                for (rec of response) {
+                    document.getElementById( "EX_RESULT" ).value = rec.given_name + " " + rec.surname + " " + rec.sex + "\n" + document.getElementById( "EX_RESULT" ).value;
+                    document.getElementById( "EX_RESULT" ).value.replace( /\r?\n/g, '<br />' );
+                }
+            },
+            fail: function( error ) {
+                console.log( "Something went wrong. " + error );
+            }
+        });
+    });
 });
 
 function addToFileLists( file ) {
@@ -416,7 +575,6 @@ function createGED() {
     document.getElementById( "STATUS" ).value = "Created " + file + " successfully.\n" + document.getElementById( "STATUS" ).value;
     document.getElementById( "STATUS" ).value.replace( /\r?\n/g, '<br />' );
     console.log( "Created GEDCOM" );
-
 }
 
 function updateFileView( GED_JSON, file ) {

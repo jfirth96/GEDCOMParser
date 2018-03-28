@@ -109,6 +109,12 @@ input[type=text] {
     overflow-x: auto;
 }
 
+.EX_RES {
+    width: 100%;
+    height: 300px;
+    overflow: auto;
+}
+
 #overlay {
    display:none;
    position:fixed;
