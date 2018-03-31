@@ -170,7 +170,7 @@ app.get( '/getAncestors', function( req, res ) {
 });
 
 app.get( '/file', function( req, res ) {
-    console.log( req.query );
+    //console.log( req.query );
 
     // Form connection once, declared as global variable
     connection = mysql.createConnection({
@@ -375,9 +375,6 @@ app.get( '/allBySurname', function( req, res ) {
                 err: "Something went wrong. " + err
             });
         } else {
-            for (let row of rows) {
-                console.log( row );    
-            }
             res.send( rows );
         }
     });
@@ -397,9 +394,7 @@ app.get( '/allFromFile', function( req, res ) {
                         err: "Something went wrong. " + err
                     });
                 } else {
-                    for (let row of rows) {
-                        console.log( row );
-                    }
+                    
                     res.send( rows );
                 }
             });
@@ -417,7 +412,7 @@ app.get( '/help', function( req, res ) {
                 err: "Something went wrong. " + err
             });
         } else {
-            console.log( rows );
+            //console.log( rows );
             res.send( rows );
         }
     });
@@ -433,7 +428,7 @@ app.get( '/allIndOfGender', function( req, res ) {
                 err: "Something went wrong. " + err
             });
         } else {
-            console.log( rows );
+            //console.log( rows );
             res.send( rows );
         }
     });
@@ -449,7 +444,7 @@ app.get( '/allFilesFamLimit', function( req, res ) {
                 err: "Something went wrong. " + err
             });
         } else {
-            console.log( rows );
+            //console.log( rows );
             res.send( rows );
         }
     });
@@ -465,7 +460,7 @@ app.get( '/indivsWithFile', function( req, res ) {
                 err: "Something went wrong. " + err
             });
         } else {
-            console.log( rows );
+            //console.log( rows );
             res.send( rows );
         }
     });
@@ -481,7 +476,7 @@ app.get( '/userSELECT', function( req, res ) {
                 err: "Something went wrong. " + err
             });
         } else {
-            console.log( rows );
+            //console.log( rows );
             res.send( rows );
         }
     });

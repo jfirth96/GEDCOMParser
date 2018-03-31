@@ -41,7 +41,7 @@ $(document).ready(function() {
             url: '/file',
             data: json,
             success: function( response ) {
-                console.log( response );
+                console.log( response.resp );
                 console.log( "Successfully connected to " + json.uname + "@dursley.socs.uoguelph.ca on the database <" + json.dbase + ">" );
                 overlay.style.display = "none";
                 popup.style.display = "none";
@@ -57,7 +57,7 @@ $(document).ready(function() {
             url: '/individual',
             data: json,
             success: function( response ) {
-                console.log( response );
+                console.log( response.resp );
                 overlay.style.display = "none";
                 popup.style.display = "none";
             },
@@ -364,7 +364,7 @@ $(document).ready(function() {
                 num_individuals: cells[6].innerHTML,
                 num_families: cells[7].innerHTML,
             }
-            console.log( json );
+            //console.log( json );
 
             $.ajax({
                 type: 'get',
@@ -459,7 +459,7 @@ $(document).ready(function() {
             dataType: 'json',
             url: '/allBySurname',
             success: function( response ) {
-                console.log( response );
+                //console.log( response );
                 document.getElementById( "EX_RESULT" ).value = ""; 
                 for (rec of response) {
                     //let str = JSON.stringify( rec, null, 2 );
@@ -489,7 +489,7 @@ $(document).ready(function() {
                 'file': file
             },
             success: function( response ) {
-                console.log( response );
+                //console.log( response );
                 document.getElementById( "EX_RESULT" ).value = ""; 
                 for (rec of response) {
                     document.getElementById( "EX_RESULT" ).value = rec.given_name + " " + rec.surname + " " + rec.sex + "\n" + document.getElementById( "EX_RESULT" ).value;
@@ -528,7 +528,7 @@ $(document).ready(function() {
                 'sex': gender
             },
             success: function( response ) {
-                console.log( response );
+                //console.log( response );
                 document.getElementById( "EX_RESULT" ).value = "";
                 for (let rec of response) {
                     document.getElementById( "EX_RESULT" ).value += rec.given_name + " " + rec.surname + " " + rec.sex + "\n";
@@ -562,7 +562,7 @@ $(document).ready(function() {
                 'limit': famLim
             },
             success: function( response ) {
-                console.log( response );
+                //console.log( response );
                 document.getElementById( "EX_RESULT" ).value = "";
                 for (let rec of response) {
                     document.getElementById( "EX_RESULT" ).value += rec.file_Name + " - " + rec.num_families + " families\n";
@@ -581,7 +581,7 @@ $(document).ready(function() {
             dataType: 'json',
             url: '/indivsWithFile',
             success: function( response ) {
-                console.log( response );
+                //console.log( response );
                 document.getElementById( "EX_RESULT" ).value = "";
                 for (let rec of response) {
                     document.getElementById( "EX_RESULT" ).value += "<" + rec.file_Name + "> " + rec.given_name + " " + rec.surname + " " + rec.sex + "\n";
@@ -610,7 +610,7 @@ $(document).ready(function() {
                 'select': query
             },
             success: function( response ) {
-                console.log( response );
+                //console.log( response );
                 document.getElementById( "EX_RESULT" ).value = "";
                 for (let rec of response) {
                     document.getElementById( "EX_RESULT" ).value += JSON.stringify( rec, null, 2 ) + "\n";
@@ -633,11 +633,11 @@ $(document).ready(function() {
                 table: 'FILE'
             },
             success: function( response ) {
-                console.log( response );
+                //console.log( response );
                 document.getElementById( "EX_RESULT" ).value += "----- FILE -----\n";
                 document.getElementById( "EX_RESULT" ).value.replace( /\r?\n/g, '<br />' );
                 for (let rec of response) {
-                    console.log( rec );
+                    //console.log( rec );
                     document.getElementById( "EX_RESULT" ).value += "Column: " + rec.Field + " Type: " + rec.Type + " Null: " + rec.Null + " Key: "
                     + rec.Key + " Default: " + rec.Default + " Extra: " + rec.Extra + "\n";
                     document.getElementById( "EX_RESULT" ).value.replace( /\r?\n/g, '<br />' );
@@ -656,21 +656,11 @@ $(document).ready(function() {
                 table: 'INDIVIDUAL'
             },
             success: function( response ) {
-                console.log( response );
+                //console.log( response );
                 document.getElementById( "EX_RESULT" ).value += "----- INDIVIDUAL -----\n";
                 document.getElementById( "EX_RESULT" ).value.replace( /\r?\n/g, '<br />' );
                 for (let rec of response) {
-                    console.log( rec );
-                    /*
-                    RowDataPacket {
-                        Field: 'file_Name',
-                        Type: 'varchar(60)',
-                        Null: 'NO',
-                        Key: 'UNI',
-                        Default: null,
-                        Extra: '' },
-                    */
-
+                    //console.log( rec );
                     document.getElementById( "EX_RESULT" ).value += "Column: " + rec.Field + " Type: " + rec.Type + " Null: " + rec.Null + " Key: "
                     + rec.Key + " Default: " + rec.Default + " Extra: " + rec.Extra + "\n";
                     document.getElementById( "EX_RESULT" ).value.replace( /\r?\n/g, '<br />' );
