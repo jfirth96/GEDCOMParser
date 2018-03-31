@@ -156,13 +156,16 @@
                 <input type = "button" id = "CLEAR_ALL" value = "Clear All Data"><br/>
                 <form id = "EXEC_QY" action ="" class = "form">
                     <div class = "myHeader"><b>Execute Query</b></div>
-                    <input type = "text" id = "QRY_IN">* Type input for queries here.<br><br />
+                    <input type = "text" id = "QRY_IN">* Type input for standard queries here.<br><br>
+                    <input type = "text" id = "QRY_SEL" value = "SELECT ">* Complete the SELECT statement and press submit.<br><br />
                     <input type = "button" id = "QRY_1" value = "Display Individuals by Surname">
                     <input type = "button" id = "QRY_2" value = "Display Individuals from File">
-                    <input type = "button" id = "QRY_3" value = "Query 3">
-                    <input type = "button" id = "QRY_4" value = "Query 4">
-                    <input type = "button" id = "QRY_5" value = "Query 5">
-                    <input type = "button" id = "QRY_C" value = "Clear Query Results"><br />
+                    <input type = "button" id = "QRY_3" value = "All Individuals of Given Gender">
+                    <input type = "button" id = "QRY_4" value = "All Files w/ families > x">
+                    <input type = "button" id = "QRY_5" value = "Display Individuals with Filename ">
+                    <input type = "button" id = "QRY_C" value = "Clear Query Results">
+                    <input type = "button" id = "QRY_SUB" value = "Submit">
+                    <input type = "button" id = "QRY_HELP" value = "Help" style = "background-color: #FF674C;"><br />
                     <div class = "myHeader"><b>Query Results</b></div>
                     <textarea class = "EX_RES" id = "EX_RESULT" style = "overflow: auto;" data-role="none" readonly></textarea>
                 </form>

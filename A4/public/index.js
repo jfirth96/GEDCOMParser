@@ -2,19 +2,33 @@ $(document).ready(function() {
     // Page Loaded
     console.log("Page loaded successfully.");
     document.getElementById( "STATUS" ).value = "";
+    document.getElementById( "EX_RESULT" ).value = "";
+    document.getElementById( "QRY_IN" ).value = "";
+    document.getElementById( "QRY_SEL" ).value = "SELECT ";
+    document.getElementById( "DB_UNAME" ).value = "jfirth";
+    document.getElementById( "DB_PWORD" ).value = "0880887";
+    document.getElementById( "DB_DBASE" ).value = "jfirth";
+    document.getElementById( "GD_file" ).value = "";
+    document.getElementById( "GD_src" ).value = "";
+    document.getElementById( "GD_ver" ).value = "";
+    document.getElementById( "GD_sub" ).value = "";
+    document.getElementById( "GD_subAdd" ).value = "";
+    document.getElementById( "AD_givn" ).value = "";
+    document.getElementById( "AD_surn" ).value = "";
+    document.getElementById( "GD/A_givn" ).value = "";
+    document.getElementById( "GD/A_surn" ).value = "";
 
     var overlay = document.getElementById("overlay");
     var popup = document.getElementById("popup");
     overlay.style.display = "block"; // make visible
     popup.style.display = "block";
-    
-    var json = {
-        'uname': document.getElementById( "DB_UNAME" ).value,
-        'pword': document.getElementById( "DB_PWORD" ).value,
-        'dbase': document.getElementById( "DB_DBASE" ).value
-    }
 
     $('#DB_SUB').click( function( e ) {
+        var json = {
+            'uname': document.getElementById( "DB_UNAME" ).value,
+            'pword': document.getElementById( "DB_PWORD" ).value,
+            'dbase': document.getElementById( "DB_DBASE" ).value
+        }
         if (json.uname == "" || json.pword == "" || json.dbase == "") {
             document.getElementById( "DB_UNAME" ).setAttribute( "style", "background-color: #ff0000" );
             document.getElementById( "DB_PWORD" ).setAttribute( "style", "background-color: #ff0000" );
@@ -28,6 +42,7 @@ $(document).ready(function() {
             data: json,
             success: function( response ) {
                 console.log( response );
+                console.log( "Successfully connected to " + json.uname + "@dursley.socs.uoguelph.ca on the database <" + json.dbase + ">" );
                 overlay.style.display = "none";
                 popup.style.display = "none";
             },
@@ -336,11 +351,9 @@ $(document).ready(function() {
         var table = document.getElementById( "FILE" );
         var rows = table.rows;
 
-        for (let i = 1; i < rows.length - 1; i++) {
+        for (let i = 1; i < rows.length - 1; i++) { // i = 1 because the first row needs to be skipped
             let cells = rows[i].cells;
-            //for (let j = 0; j < cells.length; j++) {
-            //    console.log( cells[j].innerHTML );
-            //}
+            
             let json = {
                 file_name: cells[0].innerText,
                 source: cells[1].innerHTML,
@@ -352,6 +365,7 @@ $(document).ready(function() {
                 num_families: cells[7].innerHTML,
             }
             console.log( json );
+
             $.ajax({
                 type: 'get',
                 dataType: 'json',
@@ -367,14 +381,6 @@ $(document).ready(function() {
                 }
             });
 
-            /*let json2 = {
-                ind_id: ,
-                surname: ,
-                given_name: ,
-                sex: ,
-                fam_size: ,
-                source_file: 
-            }*/
             $.ajax({
                 type: 'get',
                 dataType: 'json',
@@ -392,6 +398,8 @@ $(document).ready(function() {
                 }
             });
         }
+        let tmp = document.getElementById( "DB_STATUS" );
+        tmp.click();
     });
 
     $('#CLEAR_ALL').click( function( e ) {
@@ -424,6 +432,8 @@ $(document).ready(function() {
                 console.log( error );
             }
         });
+        let tmp = document.getElementById( "DB_STATUS" );
+        tmp.click();
     });
 
     $('#DB_STATUS').click( function( e ) {
@@ -432,11 +442,10 @@ $(document).ready(function() {
             dataType: 'json',
             url: '/status',
             success: function( response ) {
-                //console.log( response );
                 document.getElementById( "STATUS" ).value = "Database has " + response.file + " files and " + response.ind + " individuals.\n" + document.getElementById( "STATUS" ).value;
                 document.getElementById( "STATUS" ).value.replace( /\r?\n/g, '<br />' );
-                //document.getElementById( "EX_RESULT" ).value = "Database has " + response.file + " files and " + response.ind + " individuals.\n" + document.getElementById( "STATUS" ).value;
-                //document.getElementById( "EX_RESULT" ).value.replace( /\r?\n/g, '<br />' );
+                document.getElementById( "EX_RESULT" ).value = "Database has " + response.file + " files and " + response.ind + " individuals.\n" + document.getElementById( "EX_RESULT" ).value;
+                document.getElementById( "EX_RESULT" ).value.replace( /\r?\n/g, '<br />' );
             },
             fail: function( error ) {
                 console.log( "Something went wrong. " + error );
@@ -467,6 +476,8 @@ $(document).ready(function() {
     $('#QRY_2').click( function( e ) {
         let file = document.getElementById( "QRY_IN" ).value;
         if (file == "") {
+            document.getElementById( "EX_RESULT" ).value = "No file name given" + "\n";
+            document.getElementById( "EX_RESULT" ).value.replace( /\r?\n/g, '<br />' );
             return;
         }
 
@@ -484,9 +495,189 @@ $(document).ready(function() {
                     document.getElementById( "EX_RESULT" ).value = rec.given_name + " " + rec.surname + " " + rec.sex + "\n" + document.getElementById( "EX_RESULT" ).value;
                     document.getElementById( "EX_RESULT" ).value.replace( /\r?\n/g, '<br />' );
                 }
+                if (response.length == 0) {
+                    document.getElementById( "EX_RESULT" ).value = "No results to show";
+                }
             },
             fail: function( error ) {
                 console.log( "Something went wrong. " + error );
+            }
+        });
+    });
+
+    $('#QRY_3').click( function( e ) {
+        let gender = document.getElementById( "QRY_IN" ).value;
+        if (gender == "") {
+            document.getElementById( "EX_RESULT" ).value = "No argument given."; 
+            return;
+        } else if (gender == "M" || gender == "Male" || gender == "male") {
+            gender = "M";
+        } else if (gender == "F" || gender == "Female" || gender == "female") {
+            gender = "F";
+        } else {
+            document.getElementById( "EX_RESULT" ).value = "Accepted gender formats: 'Male', 'male', 'M', 'Female', 'female', 'F'.\nPlease try again."; 
+            document.getElementById( "EX_RESULT" ).value.replace( /\r?\n/g, '<br />' );
+            return;
+        }
+
+        $.ajax({
+            type: 'get',
+            dataType: 'json',
+            url: '/allIndOfGender',
+            data: {
+                'sex': gender
+            },
+            success: function( response ) {
+                console.log( response );
+                document.getElementById( "EX_RESULT" ).value = "";
+                for (let rec of response) {
+                    document.getElementById( "EX_RESULT" ).value += rec.given_name + " " + rec.surname + " " + rec.sex + "\n";
+                    document.getElementById( "EX_RESULT" ).value.replace( /\r?\n/g, '<br />' );
+                }
+            },
+            fail: function( error ) {
+                console.log( "Something went wrong. " + error );
+            }
+        });
+    });
+
+    $('#QRY_4').click( function( e ) {
+        let temp = document.getElementById( "QRY_IN" ).value;
+        if (temp == "") {
+            document.getElementById( "EX_RESULT" ).value = "No argument given."; 
+            return;
+        }
+
+        let famLim = Number( temp );
+        if (famLim < 0) {
+            document.getElementById( "EX_RESULT" ).value = "Family limit must be >= 0."; 
+            return;   
+        }
+
+        $.ajax({
+            type: 'get',
+            dataType: 'json',
+            url: '/allFilesFamLimit',
+            data: {
+                'limit': famLim
+            },
+            success: function( response ) {
+                console.log( response );
+                document.getElementById( "EX_RESULT" ).value = "";
+                for (let rec of response) {
+                    document.getElementById( "EX_RESULT" ).value += rec.file_Name + " - " + rec.num_families + " families\n";
+                    document.getElementById( "EX_RESULT" ).value.replace( /\r?\n/g, '<br />' );
+                }
+            },
+            fail: function( error ) {
+                console.log( "Something went wrong. " + error );
+            }
+        });
+    });
+
+    $('#QRY_5').click( function( e ) {
+        $.ajax({
+            type: 'get',
+            dataType: 'json',
+            url: '/indivsWithFile',
+            success: function( response ) {
+                console.log( response );
+                document.getElementById( "EX_RESULT" ).value = "";
+                for (let rec of response) {
+                    document.getElementById( "EX_RESULT" ).value += "<" + rec.file_Name + "> " + rec.given_name + " " + rec.surname + " " + rec.sex + "\n";
+                    document.getElementById( "EX_RESULT" ).value.replace( /\r?\n/g, '<br />' );
+                }
+            },
+            fail: function( error ) {
+                console.log( "Something went wrong. " + err );
+            }
+        })
+    });
+
+    $('#QRY_SUB').click( function( e ) {
+        let query = document.getElementById( "QRY_SEL" ).value;
+
+        if (query == "SELECT " || query == "SELECT" || query == "") {
+            document.getElementById( "EX_RESULT" ).value = "Please fill in the query before submitting."; 
+            return;
+        }
+
+        $.ajax({
+            type: 'get',
+            dataType: 'json',
+            url: '/userSELECT',
+            data: {
+                'select': query
+            },
+            success: function( response ) {
+                console.log( response );
+                document.getElementById( "EX_RESULT" ).value = "";
+                for (let rec of response) {
+                    document.getElementById( "EX_RESULT" ).value += JSON.stringify( rec, null, 2 ) + "\n";
+                    document.getElementById( "EX_RESULT" ).value.replace( /\r?\n/g, '<br />' );
+                }
+            },
+            fail: function( error ) {
+                console.log( "Something went wrong. " + error );
+            }
+        });
+    });
+
+    $('#QRY_HELP').click( function( e ) {
+        document.getElementById( "EX_RESULT" ).value = "";
+        $.ajax({
+            type: 'get',
+            dataType: 'json',
+            url: '/help',
+            data: {
+                table: 'FILE'
+            },
+            success: function( response ) {
+                console.log( response );
+                document.getElementById( "EX_RESULT" ).value += "----- FILE -----\n";
+                document.getElementById( "EX_RESULT" ).value.replace( /\r?\n/g, '<br />' );
+                for (let rec of response) {
+                    console.log( rec );
+                    document.getElementById( "EX_RESULT" ).value += "Column: " + rec.Field + " Type: " + rec.Type + " Null: " + rec.Null + " Key: "
+                    + rec.Key + " Default: " + rec.Default + " Extra: " + rec.Extra + "\n";
+                    document.getElementById( "EX_RESULT" ).value.replace( /\r?\n/g, '<br />' );
+                }
+            },
+            fail: function( error ) {
+                console.log( error );
+            }
+        });
+
+        $.ajax({
+            type: 'get',
+            dataType: 'json',
+            url: '/help',
+            data: {
+                table: 'INDIVIDUAL'
+            },
+            success: function( response ) {
+                console.log( response );
+                document.getElementById( "EX_RESULT" ).value += "----- INDIVIDUAL -----\n";
+                document.getElementById( "EX_RESULT" ).value.replace( /\r?\n/g, '<br />' );
+                for (let rec of response) {
+                    console.log( rec );
+                    /*
+                    RowDataPacket {
+                        Field: 'file_Name',
+                        Type: 'varchar(60)',
+                        Null: 'NO',
+                        Key: 'UNI',
+                        Default: null,
+                        Extra: '' },
+                    */
+
+                    document.getElementById( "EX_RESULT" ).value += "Column: " + rec.Field + " Type: " + rec.Type + " Null: " + rec.Null + " Key: "
+                    + rec.Key + " Default: " + rec.Default + " Extra: " + rec.Extra + "\n";
+                    document.getElementById( "EX_RESULT" ).value.replace( /\r?\n/g, '<br />' );
+                }
+            },
+            fail: function( error ) {
+                console.log( error );
             }
         });
     });

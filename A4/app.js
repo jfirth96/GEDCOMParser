@@ -182,15 +182,15 @@ app.get( '/file', function( req, res ) {
 
     connection.connect();
     let query = "CREATE TABLE IF NOT EXISTS FILE (file_id INT NOT NULL AUTO_INCREMENT," + 
-        " file_name VARCHAR(60) NOT NULL," + 
+        " file_Name VARCHAR(60) NOT NULL," + 
         " source VARCHAR(250) NOT NULL," + 
         " version VARCHAR(10) NOT NULL," + 
         " encoding VARCHAR(10) NOT NULL," + 
         " sub_name VARCHAR(62) NOT NULL," + 
         " sub_addr VARCHAR(256)," + 
-        " num_individuals INT," + 
+        " num_individials INT," + 
         " num_families INT," + 
-        " PRIMARY KEY(file_id), UNIQUE (file_name))";
+        " PRIMARY KEY(file_id), UNIQUE (file_Name))";
     connection.query( query, function( err, rows, fields ) {
         if ( err ) {
             console.log( "Something went wrong. " + err );
@@ -268,7 +268,7 @@ app.get( '/storeAllFiles', function( req, res ) {
 });
 
 function getKey( filename, func ) {
-    let query = "SELECT file_id FROM FILE WHERE file_name = '" + filename + "'";
+    let query = "SELECT file_id FROM FILE WHERE file_Name = '" + filename + "'";
 
     connection.query( query, function( err, rows, fields ) {
         // call passed in function
@@ -346,7 +346,7 @@ app.get( '/clearData', function( req, res ) {
 });
 
 app.get( '/status', function( req, res ) {
-    let query = "SELECT file_name, num_individuals as file_list FROM FILE";
+    let query = "SELECT file_Name, num_individials as file_list FROM FILE";
 
     connection.query( query, function( err, rows, fields ) {
         if (err) {
@@ -406,6 +406,87 @@ app.get( '/allFromFile', function( req, res ) {
         }
     });
 });
+
+app.get( '/help', function( req, res ) {
+    let query = "DESCRIBE " + req.query.table;
+
+    connection.query( query, function( err, rows, fields ) {
+        if (err) {
+            console.log( "Something went wrong. " + err );
+            res.send({
+                err: "Something went wrong. " + err
+            });
+        } else {
+            console.log( rows );
+            res.send( rows );
+        }
+    });
+});
+
+app.get( '/allIndOfGender', function( req, res ) {
+    let query = "SELECT DISTINCT given_name, surname, sex FROM INDIVIDUAL WHERE sex = '" + req.query.sex + "'";
+
+    connection.query( query, function( err, rows, fields ) {
+        if (err) {
+            console.log( "Something went wrong. " + err );
+            res.send({
+                err: "Something went wrong. " + err
+            });
+        } else {
+            console.log( rows );
+            res.send( rows );
+        }
+    });
+});
+
+app.get( '/allFilesFamLimit', function( req, res ) {
+    let query = "SELECT file_Name, num_families FROM FILE WHERE num_families >= '" + req.query.limit + "'";
+
+    connection.query( query, function( err, rows, fields ) {
+        if (err) {
+            console.log( "Something went wrong. " + err );
+            res.send({
+                err: "Something went wrong. " + err
+            });
+        } else {
+            console.log( rows );
+            res.send( rows );
+        }
+    });
+});
+
+app.get( '/indivsWithFile', function( req, res ) {
+    let query = "SELECT given_name, surname, sex, file_Name FROM FILE, INDIVIDUAL WHERE (FILE.file_id = INDIVIDUAL.source_file) ORDER BY file_Name";
+
+    connection.query( query, function( err, rows, fields ) {
+        if (err) {
+            console.log( "Something went wrong. " + err );
+            res.send({
+                err: "Something went wrong. " + err
+            });
+        } else {
+            console.log( rows );
+            res.send( rows );
+        }
+    });
+});
+
+app.get( '/userSELECT', function( req, res ) {
+    let query = req.query.select;
+
+    connection.query( query, function( err, rows, fields ){
+        if (err) {
+            console.log( "Something went wrong. " + err );
+            res.send({
+                err: "Something went wrong. " + err
+            });
+        } else {
+            console.log( rows );
+            res.send( rows );
+        }
+    });
+});
+
 
 app.listen(portNum);
 console.log('Running app at localhost: ' + portNum);
